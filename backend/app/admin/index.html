@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>页架 · 管理室</title>
+  <link rel="icon" href="/admin/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/admin/assets/admin.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <main id="login-view" class="login-layout">
+    <section class="login-intro" aria-labelledby="login-title">
+      <div class="brand-mark" aria-hidden="true">页</div>
+      <p class="eyebrow">PAGE SHELF · NAS ARCHIVE</p>
+      <h1 id="login-title">把散落的文件，<br>安放成一座书房。</h1>
+      <p class="lede">管理 NAS 存储授权、创建独立书架，并让后台按自己的节奏巡视新书。</p>
+      <dl class="login-facts">
+        <div><dt>路径边界</dt><dd>只访问已授权目录</dd></div>
+        <div><dt>扫描方式</dt><dd>按书架独立运行</dd></div>
+        <div><dt>PDF 原则</dt><dd>固定版式，绝不拆章</dd></div>
+      </dl>
+    </section>
+
+    <section class="login-panel" aria-label="管理员登录">
+      <div>
+        <p class="section-number">01 / ACCESS</p>
+        <h2>进入管理室</h2>
+        <p id="login-hint" class="muted">首次部署可使用默认密码 <strong>112233</strong>，登录后必须立即修改。</p>
+      </div>
+      <form id="login-form" class="stack-form">
+        <input type="text" name="username" value="admin" autocomplete="username" hidden tabindex="-1" aria-hidden="true">
+        <label for="admin-password">管理密码</label>
+        <input id="admin-password" name="password" type="password" autocomplete="current-password" required>
+        <p id="login-error" class="form-error" role="alert"></p>
+        <button class="button button-primary" type="submit">打开书房</button>
+      </form>
+      <p class="microcopy">登录凭据保存在仅限本浏览器使用的 HttpOnly 会话中。</p>
+    </section>
+  </main>
+
+  <div id="dashboard-view" class="dashboard" hidden>
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark brand-mark-small" aria-hidden="true">页</div>
+        <div><strong>页架</strong><span>NAS 管理室</span></div>
+      </div>
+      <nav aria-label="管理导航">
+        <a href="#overview" class="nav-link active"><span>01</span>总览</a>
+        <a href="#shelves" class="nav-link"><span>02</span>书架</a>
+        <a href="#books" class="nav-link"><span>03</span>图书与拆分</a>
+        <a href="#storage" class="nav-link"><span>04</span>存储授权</a>
+        <a href="#maintenance" class="nav-link"><span>05</span>系统维护</a>
+      </nav>
+      <div class="sidebar-foot">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span>自动扫描服务运行中</span>
+        <button id="logout-button" class="text-action" type="button">退出</button>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="page-header" id="overview">
+        <div>
+          <p class="eyebrow">LIBRARY CONTROL ROOM</p>
+          <h1>书房总览</h1>
+          <p class="muted">所有目录操作都被限制在容器已获得权限的存储范围内。</p>
+        </div>
+        <div class="header-actions">
+          <button id="refresh-button" class="button button-quiet" type="button">刷新状态</button>
+          <button id="scan-all-button" class="button button-primary" type="button">扫描全部书架</button>
+        </div>
+      </header>
+
+      <section class="metrics" aria-label="书库统计">
+        <article><span class="metric-index">A</span><strong id="metric-shelves">—</strong><p>书架</p></article>
+        <article><span class="metric-index">B</span><strong id="metric-books">—</strong><p>收录书籍</p></article>
+        <article><span class="metric-index">C</span><strong id="metric-size">—</strong><p>文件总量</p></article>
+        <article><span class="metric-index">D</span><strong id="metric-scanning">—</strong><p>正在扫描</p></article>
+      </section>
+
+      <section id="shelves" class="section-block">
+        <div class="section-heading">
+          <div><p class="section-number">02 / SHELVES</p><h2>书架</h2></div>
+          <button id="add-shelf-button" class="button button-outline" type="button">＋ 新建书架</button>
+        </div>
+        <div id="shelf-list" class="shelf-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="books" class="section-block">
+        <div class="section-heading books-heading">
+          <div>
+            <p class="section-number">03 / BOOKS</p>
+            <h2>图书与章节拆分</h2>
+            <p class="muted">以书架为单位查看书籍，并为每本 TXT 或 EPUB 单独选择拆分方式。</p>
+          </div>
+          <div class="book-toolbar">
+            <label for="book-shelf-filter">书架
+              <select id="book-shelf-filter" aria-label="选择要查看的书架"></select>
+              <span id="book-shelf-selection" class="select-value-caption" aria-live="polite"></span>
+            </label>
+            <label for="book-search">筛选
+              <input id="book-search" type="search" placeholder="书名、作者或文件名" autocomplete="off">
+            </label>
+          </div>
+        </div>
+        <div id="book-list" class="book-list" aria-live="polite">
+          <div class="empty-state"><strong>选择一个书架</strong><span>这里会显示该书架内的书籍与章节策略。</span></div>
+        </div>
+      </section>
+
+      <section id="storage" class="section-block">
+        <div class="section-heading">
+          <div><p class="section-number">04 / STORAGE</p><h2>存储授权</h2></div>
+          <div class="section-actions">
+            <button id="refresh-storage-button" class="button button-quiet" type="button">刷新授权</button>
+            <button id="add-storage-button" class="button button-outline" type="button">＋ 登记存储位置</button>
+          </div>
+        </div>
+        <div class="storage-layout">
+          <div>
+            <h3>容器已授权范围</h3>
+            <div id="root-list" class="root-list"></div>
+          </div>
+          <div>
+            <h3>已登记位置</h3>
+            <div id="storage-list" class="storage-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="maintenance" class="section-block danger-zone">
+        <div class="section-heading">
+          <div><p class="section-number">05 / MAINTENANCE</p><h2>系统维护</h2></div>
+          <div class="section-actions">
+            <button id="change-password-button" class="button button-quiet" type="button">修改管理密码</button>
+            <button id="reset-button" class="button button-danger" type="button">重置后端</button>
+          </div>
+        </div>
+        <p class="muted">管理密码用于网页后台和 Android App 登录。重置会清空书架、索引、章节、阅读进度和封面缓存，但不会删除 NAS 中的原始书籍文件。</p>
+      </section>
+
+      <footer class="page-footer">
+        <span>Page Shelf / 固定版式阅读系统</span>
+        <span id="last-refreshed">尚未刷新</span>
+      </footer>
+    </main>
+  </div>
+
+  <dialog id="storage-dialog" class="dialog">
+    <form id="storage-form" class="dialog-card">
+      <div class="dialog-head"><div><p class="section-number">NEW LOCATION</p><h2>登记存储位置</h2></div><button class="dialog-close" type="button" aria-label="关闭">×</button></div>
+      <p class="muted">路径必须位于下方已授权范围内。目录不存在时可以由后端创建。</p>
+      <label for="storage-name">显示名称</label>
+      <input id="storage-name" name="name" placeholder="例如：NAS 主存储" required maxlength="200" autocomplete="off">
+      <label for="storage-path">容器内路径</label>
+      <input id="storage-path" name="path" placeholder="/library" required autocomplete="off">
+      <label class="check-row"><input id="storage-create" type="checkbox" checked><span>目录不存在时自动创建</span></label>
+      <p id="storage-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions"><button class="button button-quiet" type="button" data-close-dialog>取消</button><button class="button button-primary" type="submit" value="default">登记位置</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="shelf-dialog" class="dialog">
+    <form id="shelf-form" class="dialog-card">
+      <div class="dialog-head"><div><p class="section-number">NEW SHELF</p><h2>新建书架</h2></div><button class="dialog-close" type="button" aria-label="关闭">×</button></div>
+      <p class="muted">可直接把 NAS 已挂载的整个目录作为书架，也可以在其中创建子目录。</p>
+      <label for="shelf-name">书架名称</label>
+      <input id="shelf-name" name="name" placeholder="例如：文学与小说" required maxlength="200" autocomplete="off">
+      <label for="shelf-location">存储位置</label>
+      <select id="shelf-location" name="storage_location_id" required></select>
+      <label class="check-row"><input id="shelf-root" type="checkbox" checked><span>直接使用整个存储位置</span></label>
+      <label for="shelf-folder">相对目录</label>
+      <input id="shelf-folder" name="relative_path" value="." placeholder="novels" required disabled autocomplete="off">
+      <div class="two-fields">
+        <label class="check-row"><input id="shelf-auto" type="checkbox" checked><span>启用自动扫描</span></label>
+        <label for="shelf-interval">扫描间隔（分钟）<input id="shelf-interval" type="number" min="1" max="10080" value="5" required></label>
+      </div>
+      <label class="check-row"><input id="shelf-hidden" type="checkbox"><span>设为隐藏书架</span></label>
+      <label for="shelf-pin">四位访问密码</label>
+      <input id="shelf-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="new-password" placeholder="可选；隐藏书架必须设置">
+      <p class="field-hint">设置后 App 会要求输入密码。后台已登录，可直接设置或修改，无需验证旧密码。</p>
+      <p id="shelf-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions"><button class="button button-quiet" type="button" data-close-dialog>取消</button><button class="button button-primary" type="submit" value="default">创建并扫描</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="edit-book-dialog" class="dialog dialog-editor" aria-labelledby="edit-book-dialog-title" aria-describedby="edit-book-help">
+    <form id="edit-book-form" class="dialog-card" novalidate>
+      <div class="dialog-head">
+        <div>
+          <p class="section-number">BOOK METADATA</p>
+          <h2 id="edit-book-dialog-title">编辑书籍</h2>
+        </div>
+        <button class="dialog-close" type="button" aria-label="关闭编辑书籍对话框">×</button>
+      </div>
+      <p id="edit-book-help" class="muted">只修改书目展示信息和封面，不会重命名、移动或改写 NAS 中的原始文件。</p>
+      <div class="edit-book-layout">
+        <section class="edit-cover-panel" aria-labelledby="edit-cover-heading">
+          <h3 id="edit-cover-heading">封面</h3>
+          <div id="edit-cover-frame" class="edit-cover-frame">
+            <img id="edit-cover-preview" alt="书籍封面预览" hidden>
+            <span id="edit-cover-placeholder" class="edit-cover-placeholder" aria-hidden="true"><b>页</b><small>暂无封面</small></span>
+          </div>
+          <p id="edit-cover-source" class="cover-source-label">尚未载入</p>
+          <label class="cover-file-field" for="edit-cover-file">上传新封面
+            <input id="edit-cover-file" type="file" accept="image/jpeg,image/png">
+          </label>
+          <small class="field-hint">仅支持 JPEG 或 PNG，最大 8 MB。</small>
+          <button id="edit-cover-remove" class="button button-quiet" type="button">清除当前封面</button>
+        </section>
+
+        <section class="edit-metadata-panel" aria-labelledby="edit-metadata-heading">
+          <h3 id="edit-metadata-heading">书目信息</h3>
+          <dl class="book-source-details">
+            <div>
+              <dt>原始文件名</dt>
+              <dd><code id="edit-book-filename" title=""></code></dd>
+            </div>
+            <div>
+              <dt>完整文件位置</dt>
+              <dd><code id="edit-book-location" title=""></code></dd>
+            </div>
+          </dl>
+
+          <div class="editable-field">
+            <div class="editable-field-head">
+              <label for="edit-book-title">书名</label>
+              <button id="edit-reset-title" class="field-reset" type="button" aria-pressed="false">恢复自动书名</button>
+            </div>
+            <input id="edit-book-title" name="title" maxlength="500" required autocomplete="off">
+            <small id="edit-title-hint">用于后台和 App 的书籍标题。</small>
+          </div>
+
+          <div class="editable-field">
+            <div class="editable-field-head">
+              <label for="edit-book-author">作者</label>
+              <button id="edit-reset-author" class="field-reset" type="button" aria-pressed="false">恢复自动作者</button>
+            </div>
+            <input id="edit-book-author" name="author" maxlength="500" autocomplete="off" placeholder="未填写时显示作者未知">
+            <small id="edit-author-hint">可以留空；恢复后会再次使用文件或书籍元数据。</small>
+          </div>
+        </section>
+      </div>
+      <p id="edit-book-status" class="form-status" role="status" aria-live="polite"></p>
+      <p id="edit-book-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button class="button button-quiet" type="button" data-close-dialog>取消</button>
+        <button id="edit-book-submit" class="button button-primary" type="submit">保存书籍信息</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="split-dialog" class="dialog dialog-wide">
+    <form id="split-form" class="dialog-card">
+      <div class="dialog-head">
+        <div><p class="section-number">CHAPTER STRATEGY</p><h2 id="split-dialog-title">章节拆分设置</h2></div>
+        <button class="dialog-close" type="button" aria-label="关闭">×</button>
+      </div>
+      <p id="split-book-meta" class="muted"></p>
+      <fieldset class="split-options">
+        <legend>选择拆分方式</legend>
+        <label class="split-option" data-mode="auto">
+          <input type="radio" name="split-mode" value="auto" checked>
+          <span><strong>智能识别</strong><small>推荐。综合标题格式与全文一致性；EPUB 优先使用原目录。</small></span>
+        </label>
+        <label class="split-option epub-only" data-mode="source">
+          <input type="radio" name="split-mode" value="source">
+          <span><strong>EPUB 原始目录</strong><small>严格保留 EPUB spine 与导航顺序，不重新判断标题。</small></span>
+        </label>
+        <label class="split-option" data-mode="strict">
+          <input type="radio" name="split-mode" value="strict">
+          <span><strong>严格章节标题</strong><small>仅识别“第 X 章 / Chapter X”等明确章节标志，误拆最少。</small></span>
+        </label>
+        <label class="split-option" data-mode="expanded">
+          <input type="radio" name="split-mode" value="expanded">
+          <span><strong>扩展标题识别</strong><small>同时识别卷、部、节、番外、特殊章节及连续纯数字标题。</small></span>
+        </label>
+        <label class="split-option" data-mode="fixed">
+          <input type="radio" name="split-mode" value="fixed">
+          <span><strong>按固定字数</strong><small>不判断标题，尽量在段落边界附近切分。</small></span>
+        </label>
+        <label class="split-option" data-mode="single">
+          <input type="radio" name="split-mode" value="single">
+          <span><strong>整本单章</strong><small>关闭自动识别，将全文作为一个章节，适合格式不规则的文本。</small></span>
+        </label>
+      </fieldset>
+      <label id="segment-size-row" for="split-segment-size" hidden>每段目标字数
+        <input id="split-segment-size" type="number" min="1000" max="100000" step="500" value="12000">
+        <small>允许 1,000–100,000 字；会优先靠近换行位置切分。</small>
+      </label>
+      <div class="split-impact" role="note">
+        <strong>保存后立即重新拆分</strong>
+        <span>原始文件不会被修改。章节目录与正文缓存版本会更新，阅读顺序始终以源文件出现顺序为准。</span>
+      </div>
+      <p id="split-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button class="button button-quiet" type="button" data-close-dialog>取消</button>
+        <button id="split-submit" class="button button-primary" type="submit">保存并重新拆分</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="password-dialog" class="dialog" aria-labelledby="password-dialog-title" aria-describedby="password-dialog-help">
+    <form id="password-form" class="dialog-card" data-required="false">
+      <input type="text" name="username" value="admin" autocomplete="username" hidden tabindex="-1" aria-hidden="true">
+      <div class="dialog-head">
+        <div><p class="section-number">ACCOUNT SECURITY</p><h2 id="password-dialog-title">修改管理密码</h2></div>
+        <button class="dialog-close password-optional" type="button" aria-label="关闭">×</button>
+      </div>
+      <div id="password-required-note" class="password-required-note" role="note" hidden>
+        <strong>首次登录需要完成此步骤</strong>
+        <span>默认密码仅用于初始化。修改后请在 Android App 中使用新密码连接。</span>
+      </div>
+      <p id="password-dialog-help" class="muted">新密码至少 8 位，建议使用只属于此服务的长密码。</p>
+      <label for="current-admin-password">当前管理密码</label>
+      <input id="current-admin-password" type="password" autocomplete="current-password" required maxlength="500">
+      <label for="new-admin-password">新管理密码</label>
+      <input id="new-admin-password" type="password" autocomplete="new-password" required minlength="8" maxlength="500">
+      <label for="confirm-admin-password">再次输入新密码</label>
+      <input id="confirm-admin-password" type="password" autocomplete="new-password" required minlength="8" maxlength="500">
+      <p id="password-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button class="button button-quiet password-optional" type="button" data-close-dialog>取消</button>
+        <button id="password-submit" class="button button-primary" type="submit">保存新密码</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="reset-dialog" class="dialog">
+    <form id="reset-form" class="dialog-card">
+      <div class="dialog-head"><div><p class="section-number">RESET BACKEND</p><h2>确认重置</h2></div><button class="dialog-close" type="button" aria-label="关闭">×</button></div>
+      <p class="muted">该操作会删除所有后端登记和派生数据，NAS 原始文件保持不变。</p>
+      <label class="check-row"><input id="reset-understood" type="checkbox"><span>我确认清空所有书架、索引和阅读进度</span></label>
+      <label for="reset-confirmation">输入 RESET 进行二次确认</label>
+      <input id="reset-confirmation" autocomplete="off" spellcheck="false">
+      <p id="reset-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions"><button class="button button-quiet" type="button" data-close-dialog>取消</button><button id="reset-submit" class="button button-danger" type="submit" disabled>确认重置</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/admin/assets/admin.js" defer></script>
+</body>
+</html>

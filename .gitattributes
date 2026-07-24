@@ -1,0 +1,18 @@
+* text=auto
+
+*.sh text eol=lf
+android/gradlew text eol=lf
+*.py text eol=lf
+*.kt text eol=lf
+*.kts text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+*.aar binary
+*.apk binary
+*.db binary
+*.fst binary
+*.jar binary
+*.onnx binary
+
+android/app/src/main/assets/g2pw/model.onnx filter=lfs diff=lfs merge=lfs -text

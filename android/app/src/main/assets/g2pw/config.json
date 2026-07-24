@@ -1,0 +1,10 @@
+{
+  "model": "G2PWModel-v2-onnx, dynamically quantized int8",
+  "modelVersion": "g2pW-v2-int8",
+  "windowSize": 32,
+  "useMask": true,
+  "useCharPhoneme": false,
+  "modelSource": "bert-base-chinese",
+  "onnxRuntime": "1.27.0",
+  "license": "Apache-2.0"
+}
