@@ -1,13 +1,30 @@
-# 页架（Page Shelf）
+# 页架 Page Shelf
 
-自托管的 Android 私人小说书架。后端负责扫描、解析和文件传输，Android App 提供
-TXT、EPUB、PDF 阅读、离线下载、阅读进度同步与完全离线的中文朗读。
+> **NAS 图书管理器 / NAS Library Manager**
+
+页架是一款自托管的本地图书文件管理与 Android 阅读工具。后端负责扫描、整理和传输 NAS 或服务器中
+已有的 TXT、EPUB、PDF 文件，Android App 提供离线下载、阅读进度同步与完全离线的中文朗读。
+
+> [!IMPORTANT]
+> **项目声明 / Project notice**：本项目仅用于管理用户自己拥有或有权使用的本地图书文件，不包含、
+> 不内置、不提供，也不分发任何图书资源。请遵守所在地法律法规和内容版权要求。
+>
+> Page Shelf only manages local book files that users own or are authorized to use. It does not include, provide,
+> bundle, or distribute any book content.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84)
 
-## 功能
+## 管理界面 / Admin UI
+
+| 登录 / Sign in | 书房总览 / Dashboard |
+| --- | --- |
+| ![页架管理界面登录页](docs/images/admin-login.png) | ![页架书房管理总览](docs/images/admin-dashboard.png) |
+
+截图中的图书统计仅为界面展示示例，不随项目或 Release 分发。
+
+## 功能 / Features
 
 - 网页管理后台：登记存储位置、创建书架、扫描书籍、编辑元数据和封面。
 - TXT/EPUB：目录解析、每本书独立章节规则、左右翻页或上下滚动、字体与阅读背景设置。
@@ -17,13 +34,65 @@ TXT、EPUB、PDF 阅读、离线下载、阅读进度同步与完全离线的中
 - 中文朗读：sherpa-onnx + Piper + g2pW，内置小雅和超文音色，正文不上传第三方服务。
 - 安全边界：网页 Cookie 与 App Bearer 会话分离，存储路径限制，CORS/API 文档默认关闭。
 
-## 快速启动
+## Docker 快速部署 / Quick Deploy
+
+需要 Docker Engine 24+ 和 Docker Compose v2。公开镜像同时提供 `linux/amd64` 与 `linux/arm64`，
+适用于常见 x86 NAS、服务器和 ARM NAS。
+
+拉取最新后端镜像：
+
+```bash
+docker pull ghcr.io/samworthington39-commits/page-shelf:latest
+```
+
+下载部署文件并启动：
+
+```bash
+mkdir page-shelf && cd page-shelf
+curl -LO https://raw.githubusercontent.com/samworthington39-commits/page-shelf/main/deploy/compose.yaml
+curl -Lo .env https://raw.githubusercontent.com/samworthington39-commits/page-shelf/main/deploy/.env.example
+mkdir -p library data
+docker compose pull
+docker compose up -d
+```
+
+也可以从 [Releases](https://github.com/samworthington39-commits/page-shelf/releases) 下载
+`page-shelf-<版本>-docker.zip`，解压后执行 `docker compose up -d`。固定版本部署可在 `.env` 中设置
+`PAGE_SHELF_VERSION=v1.0.8`，或直接拉取：
+
+```bash
+docker pull ghcr.io/samworthington39-commits/page-shelf:v1.0.8
+```
+
+首次部署后使用以下信息：
+
+| 项目 | 地址或内容 |
+| --- | --- |
+| 管理界面 | `http://<服务器IP>:8000/admin` |
+| Android App 服务器地址 | `http://<服务器IP>:8000`，不要添加 `/admin` 或 `/api/v1` |
+| 默认管理密码 | `112233`；首次登录后必须立即修改 |
+| 健康检查 | `http://<服务器IP>:8000/health` |
+| 书籍目录 | 宿主机 `library/`，容器内 `/library` |
+| 持久数据 | 宿主机 `data/`，包括数据库、封面和管理凭据 |
+
+进入管理界面后：
+
+1. 使用默认密码 `112233` 登录并设置至少 8 位的新密码；
+2. 登记容器内路径 `/library`；
+3. 创建书架并扫描自己已有的本地图书文件；
+4. 在 Android App 中填写服务器地址和修改后的管理密码。
+
+在部署服务器本机访问时，可将 `<服务器IP>` 换成 `localhost`。会话密钥会在首次启动时自动随机生成并
+保存在 `data/admin_credentials.json`。如需预先指定初始密码，可修改 `.env` 中的
+`ADMIN_PASSWORD`。
+
+## 从源码部署 / Build from Source
 
 需要 Docker Engine 24+ 和 Docker Compose v2。
 
 ```bash
-git clone <your-repository-url>
-cd <repository-directory>
+git clone https://github.com/samworthington39-commits/page-shelf.git
+cd page-shelf
 cp .env.example .env
 mkdir -p library data
 ```
@@ -35,34 +104,14 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Compose 项目名和容器名均为 `page-shelf`。首次部署后使用以下信息：
-
-| 项目 | 地址或内容 |
-| --- | --- |
-| 管理界面 | `http://<服务器IP>:8000/admin` |
-| Android App 服务器地址 | `http://<服务器IP>:8000`，不要添加 `/admin` 或 `/api/v1` |
-| 默认管理密码 | `112233`；首次登录后必须立即修改 |
-| 健康检查 | `http://<服务器IP>:8000/health` |
-| 书籍目录 | 宿主机 `library/`，容器内 `/library` |
-| 持久数据 | 宿主机 `data/`，包括数据库、封面和管理凭据 |
-
-在部署服务器本机访问时，可将 `<服务器IP>` 换成 `localhost`。进入管理界面后：
-
-1. 使用默认密码 `112233` 登录并按提示设置至少 8 位的新密码；
-2. 登记容器内路径 `/library`；
-3. 创建书架并扫描书籍；
-4. 在 Android App 中填写服务器地址和修改后的管理密码。
-
-会话密钥会在首次启动时自动随机生成并保存在 `data/admin_credentials.json`。如需在首次启动前指定
-自定义初始密码，可以修改 `.env` 中的 `ADMIN_PASSWORD`。
-
 更完整的 Docker、NAS、HTTPS、备份与无 Docker 部署步骤见
 [使用与部署文档](docs/getting-started.md)。
 
-## Android App
+## Android App / 安卓客户端
 
 App 支持 Android 8.0（API 26）及以上，目前只打包 `arm64-v8a`。先在网页管理界面完成首次改密，
-然后在 App 中填写后端地址和新密码：
+然后从 [Releases](https://github.com/samworthington39-commits/page-shelf/releases) 下载 APK，安装后
+填写后端地址和新密码：
 
 ```text
 192.168.1.10:8000
@@ -82,9 +131,9 @@ Set-Location android
 .\gradlew.bat assembleDebug
 ```
 
-Linux/macOS 使用 `./gradlew assembleDebug`。APK 输出位于
-`android/app/build/outputs/apk/debug/`。正式发布前必须配置自己的长期签名密钥；仓库配置中的开发签名
-只适合测试。
+Linux/macOS 使用 `./gradlew assembleDebug`。APK 输出位于 `android/app/build/outputs/apk/debug/`。
+GitHub Release 中的 APK 使用项目发布密钥签名；自行构建的 Debug APK 使用本机开发签名，二者不能互相
+覆盖安装。
 
 ## 克隆与大文件
 
@@ -145,7 +194,16 @@ Set-Location android
 
 开发环境、目录结构、CI 和发布流程见 [开发指南](docs/development.md)。
 
-## 发布到 GitHub
+## Release 文件 / Release Assets
+
+每个正式版本提供：
+
+- `page-shelf-<版本>-arm64.apk`：Android 8.0+、`arm64-v8a` 客户端；
+- `page-shelf-<版本>-docker.zip`：后端 Docker Compose、环境变量示例和部署说明；
+- `SHA256SUMS.txt`：下载文件完整性校验；
+- `ghcr.io/samworthington39-commits/page-shelf:<版本>`：`amd64`/`arm64` 后端容器镜像。
+
+## 发布到 GitHub / Publishing
 
 首次建仓、Git LFS 推送、分支保护、Release 和克隆回验步骤见
 [GitHub 发布指南](docs/github-publishing.md)。仓库当前不会自动提交或上传你的本地文件，请在发布前按指南

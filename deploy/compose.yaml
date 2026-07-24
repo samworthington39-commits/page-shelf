@@ -1,0 +1,42 @@
+name: page-shelf
+
+services:
+  api:
+    container_name: page-shelf
+    image: ghcr.io/samworthington39-commits/page-shelf:${PAGE_SHELF_VERSION:-latest}
+    pull_policy: always
+    ports:
+      - "${PAGE_SHELF_PORT:-8000}:8000"
+    volumes:
+      - ${PAGE_SHELF_LIBRARY_DIR:-./library}:/library:ro
+      - ${PAGE_SHELF_DATA_DIR:-./data}:/data
+    environment:
+      DATABASE_URL: sqlite:////data/bookshelf.db
+      LIBRARY_PATH: /library
+      STORAGE_ALLOWED_ROOTS: ${STORAGE_ALLOWED_ROOTS:-}
+      STORAGE_AUTO_DISCOVER_MOUNTS: ${STORAGE_AUTO_DISCOVER_MOUNTS:-true}
+      STORAGE_EXCLUDED_ROOTS: ${STORAGE_EXCLUDED_ROOTS:-/data}
+      COVER_PATH: /data/covers
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-112233}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-}
+      ADMIN_CREDENTIALS_PATH: /data/admin_credentials.json
+      ADMIN_SESSION_HOURS: ${ADMIN_SESSION_HOURS:-24}
+      AUTO_SCAN_POLL_SECONDS: ${AUTO_SCAN_POLL_SECONDS:-30}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS:-false}
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    stop_grace_period: 30s
+    restart: unless-stopped

@@ -14,6 +14,30 @@
 
 ## 2. 获取源码
 
+### 使用预构建镜像
+
+不需要源码即可部署后端。下载部署文件：
+
+```bash
+mkdir page-shelf && cd page-shelf
+curl -LO https://raw.githubusercontent.com/samworthington39-commits/page-shelf/main/deploy/compose.yaml
+curl -Lo .env https://raw.githubusercontent.com/samworthington39-commits/page-shelf/main/deploy/.env.example
+mkdir -p library data
+docker compose pull
+docker compose up -d
+```
+
+镜像支持 `linux/amd64` 与 `linux/arm64`：
+
+```bash
+docker pull ghcr.io/samworthington39-commits/page-shelf:latest
+```
+
+也可以从 [GitHub Releases](https://github.com/samworthington39-commits/page-shelf/releases) 下载 Docker
+部署包和 Android APK。Release 与容器镜像均不包含任何图书资源。
+
+### 从源码构建
+
 完整克隆，包括 Android 模型：
 
 ```bash

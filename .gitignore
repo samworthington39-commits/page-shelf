@@ -10,6 +10,7 @@ htmlcov/
 /library/
 /dist/
 /output/
+/.release/
 backend/data/
 android/.gradle/
 android/.kotlin/

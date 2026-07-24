@@ -62,7 +62,7 @@ abstract class GeneratePhrasePinyinAssets : DefaultTask() {
     @TaskAction
     fun generate() {
         val source = pinyinFile.get().asFile
-        val actualHash = source.sha256()
+        val actualHash = source.normalizedTextSha256()
         check(actualHash.equals(expectedPinyinSha256.get(), ignoreCase = true)) {
             "phrase-pinyin-data pinyin.txt SHA-256 mismatch: $actualHash"
         }
@@ -287,8 +287,8 @@ abstract class GeneratePhrasePinyinAssets : DefaultTask() {
         }
     }
 
-    private fun java.io.File.sha256(): String = MessageDigest.getInstance("SHA-256")
-        .digest(readBytes())
+    private fun java.io.File.normalizedTextSha256(): String = MessageDigest.getInstance("SHA-256")
+        .digest(readText(Charsets.UTF_8).replace("\r\n", "\n").toByteArray(Charsets.UTF_8))
         .joinToString("") { byte -> "%02x".format(byte) }
 
     private companion object {
@@ -314,7 +314,7 @@ val generatePhrasePinyinAssets by tasks.registering(GeneratePhrasePinyinAssets::
     tokensFile.set(layout.projectDirectory.file("src/main/assets/tts/piper_zh/common/tokens.txt"))
     g2pwPolyphonicFile.set(layout.projectDirectory.file("src/main/g2pw-data/POLYPHONIC_CHARS.txt"))
     bopomofoMapFile.set(layout.projectDirectory.file("src/main/g2pw-data/bopomofo_to_pinyin.json"))
-    expectedPinyinSha256.set("dff030d54e9c9ba48d187fba037d00af410f01c9a867528db6899f539f6e86f7")
+    expectedPinyinSha256.set("dcc769607c220b312fea3e71cb63421298b4b891b1f7356a95ab58f2c96fff81")
     sourceRevision.set("cee0ed6e6e4898580cafd2bd5e3723e20b214aa0")
     outputDirectory.set(generatedPhrasePinyinAssets)
 }
@@ -345,6 +345,18 @@ android {
 
     sourceSets.getByName("main").assets.srcDir(generatedPhrasePinyinAssets)
 
+    signingConfigs {
+        val releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+        if (!releaseKeystorePath.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(releaseKeystorePath)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -353,9 +365,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // This project is distributed directly inside the private network. Signing the
-            // optimized build with the existing debug key keeps it upgrade-compatible.
-            signingConfig = signingConfigs.getByName("debug")
+            // CI injects a persistent release key; local builds fall back to the debug key.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
