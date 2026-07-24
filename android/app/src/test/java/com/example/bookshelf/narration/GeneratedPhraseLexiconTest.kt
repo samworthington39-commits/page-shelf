@@ -22,7 +22,7 @@ class GeneratedPhraseLexiconTest {
         val metadata = generatedFile("phrase_lexicon_metadata.txt").readText(Charsets.UTF_8)
 
         assertTrue("revision=cee0ed6e6e4898580cafd2bd5e3723e20b214aa0" in metadata)
-        assertTrue("pinyin_sha256=dff030d54e9c9ba48d187fba037d00af410f01c9a867528db6899f539f6e86f7" in metadata)
+        assertTrue("pinyin_sha256=dcc769607c220b312fea3e71cb63421298b4b891b1f7356a95ab58f2c96fff81" in metadata)
         val entryCount = Regex("phrase_count=(\\d+)").find(metadata)
             ?.groupValues?.get(1)?.toInt()
             ?: error("phrase_count is missing")
