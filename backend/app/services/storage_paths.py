@@ -33,8 +33,8 @@ def allowed_storage_path(path_value: str, settings: Settings, *, create: bool) -
     resolved = candidate.resolve(strict=True)
     if not any(_is_within(resolved, root.resolve(strict=True)) for root in matching_roots):
         raise StoragePathError("存储位置通过符号链接越过了授权范围")
-    if not os.access(resolved, os.R_OK | os.W_OK | os.X_OK):
-        raise StoragePathError("容器没有该存储位置的读写权限")
+    if not os.access(resolved, os.R_OK | os.X_OK):
+        raise StoragePathError("容器没有该存储位置的读取权限")
     return resolved
 
 
