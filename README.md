@@ -64,6 +64,49 @@ docker compose up -d
 docker pull ghcr.io/samworthington39-commits/page-shelf:v1.0.9
 ```
 
+### 添加书库路径 / Add Library Paths
+
+使用上面的预构建镜像或 Release 部署包时，修改部署目录中的 `.env` 即可，**不需要同时修改
+`compose.yaml`**。将 `PAGE_SHELF_LIBRARY_DIR` 设置为宿主机或 NAS 上实际存放图书的目录：
+
+```dotenv
+# Linux / NAS（例如群晖共享目录）
+PAGE_SHELF_LIBRARY_DIR=/volume1/books
+```
+
+Windows Docker Desktop 示例：
+
+```dotenv
+PAGE_SHELF_LIBRARY_DIR=D:/Books
+```
+
+Compose 会把该宿主机目录以只读方式挂载到容器内的 `/library`。修改 `.env` 后重新创建容器并检查
+容器是否能看到文件：
+
+```bash
+docker compose up -d --force-recreate
+docker compose exec api ls -la /library
+```
+
+然后打开管理界面，在“存储位置”中登记 **容器内路径 `/library`**。不要在管理界面填写
+`/volume1/books`、`D:/Books` 等宿主机路径。
+
+如果需要同时添加多个目录，保留 `.env` 中的主书库路径，并在部署目录创建
+`compose.override.yaml`：
+
+```yaml
+services:
+  api:
+    volumes:
+      - /volume1/comics:/comics:ro
+      - /volume2/ebooks:/ebooks:ro
+    environment:
+      STORAGE_ALLOWED_ROOTS: /library,/comics,/ebooks
+```
+
+重新创建容器后，在管理界面分别登记 `/library`、`/comics` 和 `/ebooks`。所有书库均可保持 `:ro`
+只读挂载；数据库和封面仍单独保存在可写的 `data/` 目录。
+
 首次部署后使用以下信息：
 
 | 项目 | 地址或内容 |
@@ -163,6 +206,7 @@ GIT_LFS_SKIP_SMUDGE=1 git clone <your-repository-url>
 | `ADMIN_SESSION_SECRET` | 自动生成 | 可选的首次初始化会话密钥；留空时生成安全随机值 |
 | `ADMIN_CREDENTIALS_PATH` | Docker 中为 `/data/admin_credentials.json` | 持久化的密码哈希和会话密钥文件 |
 | `ADMIN_SESSION_HOURS` | `24` | 会话有效小时数 |
+| `PAGE_SHELF_LIBRARY_DIR` | `./library` | 预构建镜像部署时的宿主机/NAS 书库目录；容器内固定映射为 `/library` |
 | `LIBRARY_PATH` | Docker 中为 `/library` | 默认书库路径 |
 | `DATABASE_URL` | Docker 中为 `sqlite:////data/bookshelf.db` | SQLAlchemy 数据库 URL |
 | `COVER_PATH` | Docker 中为 `/data/covers` | 派生封面目录 |
