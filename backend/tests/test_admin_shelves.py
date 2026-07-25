@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from sqlalchemy import select
 
 from app.models import Book, ReadingProgress, Shelf, StorageLocation
@@ -94,6 +96,25 @@ def test_storage_location_must_stay_inside_authorized_root(client):
 
     assert response.status_code == 422
     assert "不在已授权范围" in response.json()["detail"]
+
+
+def test_storage_location_accepts_read_only_authorized_root(client, monkeypatch):
+    _login(client)
+    checked_modes: list[int] = []
+
+    def read_only_access(path, mode):  # noqa: ARG001
+        checked_modes.append(mode)
+        return mode == os.R_OK | os.X_OK
+
+    monkeypatch.setattr("app.services.storage_paths.os.access", read_only_access)
+    response = client.post(
+        "/api/v1/admin/storage-locations",
+        headers=ADMIN_HEADERS,
+        json={"name": "只读存储", "path": str(TEST_LIBRARY), "create_directory": True},
+    )
+
+    assert response.status_code == 201, response.text
+    assert checked_modes == [os.R_OK | os.X_OK]
 
 
 def test_storage_root_can_be_removed_and_refreshed(client):
