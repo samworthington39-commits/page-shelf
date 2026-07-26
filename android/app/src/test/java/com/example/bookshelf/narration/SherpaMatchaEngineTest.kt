@@ -10,6 +10,14 @@ class SherpaMatchaEngineTest {
     }
 
     @Test
+    fun projectPhraseLexiconPrecedesTheBaseLexicon() {
+        assertEquals(
+            "tts/matcha_zh_en/novel-phrase-lexicon.txt,tts/matcha_zh_en/lexicon.txt",
+            SherpaMatchaEngine.MATCHA_LEXICONS,
+        )
+    }
+
+    @Test
     fun playbackSpeedUsesNewRangeAndFiveHundredthsSteps() {
         assertEquals(0.75f, normalizePlaybackSpeed(0.2f), 0.0001f)
         assertEquals(2.5f, normalizePlaybackSpeed(4f), 0.0001f)

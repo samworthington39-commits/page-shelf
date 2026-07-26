@@ -49,7 +49,7 @@ internal class SherpaMatchaEngine(
                     matcha = OfflineTtsMatchaModelConfig(
                         acousticModel = "$MODEL_ROOT/model-steps-3.onnx",
                         vocoder = "$MODEL_ROOT/vocos-16khz-univ.onnx",
-                        lexicon = "$MODEL_ROOT/lexicon.txt",
+                        lexicon = MATCHA_LEXICONS,
                         tokens = "$MODEL_ROOT/tokens.txt",
                         dataDir = dataDir.absolutePath,
                     ),
@@ -108,8 +108,11 @@ internal class SherpaMatchaEngine(
     companion object {
         const val SYNTHESIS_SPEED = 1.0f
         const val MODEL_VERSION = "sherpa-onnx-1.13.4-matcha-icefall-zh-en-271b804a-vocos-b599142a"
-        const val SYNTHESIS_CONFIG_VERSION = "normal-speed-matcha-zh-en-silence-0.2-v1"
+        const val SYNTHESIS_CONFIG_VERSION =
+            "normal-speed-matcha-zh-en-silence-0.2-lexicon-210b7793-v2"
         private const val MODEL_ROOT = "tts/matcha_zh_en"
+        internal const val MATCHA_LEXICONS =
+            "$MODEL_ROOT/novel-phrase-lexicon.txt,$MODEL_ROOT/lexicon.txt"
         private const val ESPEAK_DATA = "$MODEL_ROOT/espeak-ng-data"
         private const val DATA_REVISION = "271b804af570400d3bcdcb53bf6e53cc9f75180ee763b9f13eb5eaf2b0d086ef"
         private const val SILENCE_SCALE = 0.2f

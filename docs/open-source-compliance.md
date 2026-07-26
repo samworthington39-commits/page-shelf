@@ -147,6 +147,7 @@ Gradle 会把一个项目拆成很多 Maven artifact。为避免把同一许可�
 | --- | --- | --- | --- | --- |
 | Matcha 声学模型、词典、eSpeak 与 FST | `android/app/src/main/assets/tts/matcha_zh_en/` | [ModelScope 原模型](https://modelscope.cn/models/dengcunqin/matcha_tts_zh_en_20251010)；[sherpa-onnx tts-models](https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models) 归档 SHA-256 `271b804af570400d3bcdcb53bf6e53cc9f75180ee763b9f13eb5eaf2b0d086ef` | 模型元数据标注 Apache-2.0；训练数据来源信息不完整 | 已附 Apache-2.0 文本、上游 README、来源和校验值；商业发布前重新核查训练数据来源 |
 | Vocos 16 kHz universal ONNX | `android/app/src/main/assets/tts/matcha_zh_en/vocos-16khz-univ.onnx` | [sherpa-onnx vocoder-models](https://github.com/k2-fsa/sherpa-onnx/releases/tag/vocoder-models)；上游 [gemelo-ai/vocos](https://github.com/gemelo-ai/vocos) | MIT | 已附 Vocos MIT 文本、来源和校验值 |
+| phrase-pinyin-data 派生短语词典 | `android/app/src/main/assets/tts/matcha_zh_en/novel-phrase-lexicon.txt` | [mozillazg/phrase-pinyin-data](https://github.com/mozillazg/phrase-pinyin-data) 0.19.0，提交 `cee0ed6e6e4898580cafd2bd5e3723e20b214aa0` | MIT | 与项目小说多音字覆盖表合并并过滤为上下文相关短语；已附生成脚本、来源校验值和 MIT 文本 |
 
 文件校验值：
 
@@ -155,6 +156,7 @@ Gradle 会把一个项目拆成很多 Maven artifact。为避免把同一许可�
 | `sherpa-onnx-1.13.4.aar` | `daf532d343e741df96c15e25f6da90420fc1b54126ee23dc8d49dba617033552` |
 | `matcha_zh_en/model-steps-3.onnx` | `524286bf6cf11be74329ae1c682ac69e34d6860c2ea9fd1290319d561540b16a` |
 | `matcha_zh_en/vocos-16khz-univ.onnx` | `b599142a1fb8ff03de3e84ac35ff537c619e56f4267a6fe894851a42844acf9e` |
+| `matcha_zh_en/novel-phrase-lexicon.txt` | `210b7793ab3251103a13f7af4613bf00f38fe0528087ff0ba49cec9af72a8c63` |
 
 ## 构建、平台与容器工具
 

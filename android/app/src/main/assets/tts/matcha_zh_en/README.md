@@ -12,6 +12,11 @@ notes are retained below.
   `LICENSE_APACHE-2.0.txt`; training-data provenance must still be reviewed
   before a commercial release.
 - Vocos upstream is MIT licensed. See `LICENSE_VOCOS.txt`.
+- `novel-phrase-lexicon.txt` is a compact polyphone-focused merge of Page
+  Shelf's reviewed overrides and `mozillazg/phrase-pinyin-data` 0.19.0. It is
+  loaded before the model's base `lexicon.txt`; see
+  `../../../../../../tts-data/README.md` for generation and filtering rules.
+  The source data is MIT licensed; see `LICENSE_PHRASE_PINYIN_DATA.txt`.
 
 Model files are from
 https://modelscope.cn/models/dengcunqin/matcha_tts_zh_en_20251010/summary

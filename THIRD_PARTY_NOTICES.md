@@ -75,3 +75,19 @@ before a commercial release even though the model metadata lists Apache-2.0.
 - ONNX SHA-256:
   `b599142a1fb8ff03de3e84ac35ff537c619e56f4267a6fe894851a42844acf9e`
 - License: MIT; the upstream license is bundled as `LICENSE_VOCOS.txt`.
+
+### phrase-pinyin-data 0.19.0
+
+- Project: https://github.com/mozillazg/phrase-pinyin-data
+- Source revision: `cee0ed6e6e4898580cafd2bd5e3723e20b214aa0`
+- Source file SHA-256:
+  `4cf565635a092f3911a7f560fc604aa1a05c95a121488fb28562f3dd2d1441f7`
+- Derived bundled file:
+  `android/app/src/main/assets/tts/matcha_zh_en/novel-phrase-lexicon.txt`
+- Derived file SHA-256:
+  `210b7793ab3251103a13f7af4613bf00f38fe0528087ff0ba49cec9af72a8c63`
+- License: MIT; the upstream license is bundled as
+  `LICENSE_PHRASE_PINYIN_DATA.txt`.
+- Derivation: accented pinyin is converted to Matcha numbered tokens, then
+  merged with the project's reviewed novel overrides and filtered to
+  context-sensitive 2-10 character phrases.
