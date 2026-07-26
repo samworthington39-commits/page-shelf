@@ -10,9 +10,7 @@ backend/app/
 
 android/app/src/main/
   java/          Kotlin 业务、数据层、Compose UI 与后台任务
-  assets/        g2pW、Piper 模型与文本规则
-  g2pw-data/     g2pW 构建输入和许可证
-  phrase-pinyin-data/  词典构建输入和许可证
+  assets/tts/matcha_zh_en/  Matcha、Vocos、eSpeak 与文本规范化资源
 ```
 
 详细的数据边界见 [architecture.md](architecture.md)。
@@ -79,17 +77,17 @@ Set-Location P:\android
 
 ## 模型与生成资产
 
-`g2pw/model.onnx` 使用 Git LFS。Piper ONNX、词典、FST 和 sherpa-onnx AAR 属于第三方分发内容，修改或
-替换时必须同步更新：
+`model-steps-3.onnx` 与 `vocos-16khz-univ.onnx` 使用 Git LFS。Matcha ONNX、词典、FST、eSpeak 数据
+和 sherpa-onnx AAR 属于第三方分发内容，修改或替换时必须同步更新：
 
 - `THIRD_PARTY_NOTICES.md`；
 - `docs/open-source-compliance.md`；
-- 对应 LICENSE/MODEL_CARDS；
+- 对应 LICENSE/README；
 - SHA-256 校验值；
 - Git LFS 规则（文件超过 100 MB 时）。
 
-Gradle 的 `GeneratePhrasePinyinAssets` 任务会验证固定的 `pinyin.txt` 哈希，合并本地覆盖和 Piper
-lexicon，并生成最长匹配 trie。更新上游词典时必须同步 revision、哈希和相关测试。
+Matcha 的 eSpeak 数据必须先从 APK asset 复制到 App 私有目录，sherpa-onnx 才能读取。复制目录按
+模型归档哈希隔离并带完成标记；更新模型资源时必须同步修改 `DATA_REVISION` 和设备集成测试。
 
 ## CI
 

@@ -15,4 +15,5 @@ android/gradlew text eol=lf
 *.jar binary
 *.onnx binary
 
-android/app/src/main/assets/g2pw/model.onnx filter=lfs diff=lfs merge=lfs -text
+android/app/src/main/assets/tts/matcha_zh_en/** -text
+android/app/src/main/assets/tts/matcha_zh_en/*.onnx filter=lfs diff=lfs merge=lfs -text

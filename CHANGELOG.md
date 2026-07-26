@@ -5,6 +5,12 @@
 
 ## Unreleased
 
+### Changed
+
+- Android 离线朗读测试分支改用 `matcha-icefall-zh-en` 与 Vocos，支持中英文混合文本。
+- Debug 包使用独立应用 ID 和“页架 Matcha 测试”名称，可与正式版并存。
+- 移除 Piper 双音色、g2pW 模型及其词典生成链路；Matcha 当前只提供一个女声音色。
+
 ## 1.0.9 - 2026-07-25
 
 ### Fixed

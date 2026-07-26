@@ -253,5 +253,6 @@ docker compose up -d
 
 ### Android 构建时模型文件异常
 
-运行 `git lfs install` 和 `git lfs pull`。如果 `model.onnx` 只有几行且包含
-`version https://git-lfs.github.com/spec/v1`，当前拿到的是 LFS 指针，不是模型内容。
+运行 `git lfs install` 和 `git lfs pull`。如果 `model-steps-3.onnx` 或
+`vocos-16khz-univ.onnx` 只有几行且包含 `version https://git-lfs.github.com/spec/v1`，
+当前拿到的是 LFS 指针，不是模型内容。

@@ -57,7 +57,7 @@ internal data class TtsQueueHandle(
 /** Sequentially generates normal-speed WAV files and buffers two segments ahead. */
 internal class TtsAudioQueue(
     private val cache: TtsAudioCache,
-    private val generator: SherpaPiperEngine,
+    private val generator: NarrationTtsEngine,
 ) {
     private val readyCount = AtomicInteger(0)
 

@@ -85,7 +85,6 @@ Apache-2.0。Compose BOM 解析出的版本记录为本次 Gradle 审计结果�
 | 项目/坐标 | 版本 | 用途 | SPDX 许可证 |
 | --- | --- | --- | --- |
 | sherpa-onnx (`libs/sherpa-onnx-1.13.4.aar`) | 1.13.4 | 端侧 TTS | Apache-2.0 |
-| ONNX Runtime Android | 1.27.0 | g2pW/语音模型推理 | MIT |
 | AndroidX Core KTX | 1.18.0 | Android 基础扩展 | Apache-2.0 |
 | AndroidX Activity Compose | 1.13.0 | Compose Activity | Apache-2.0 |
 | AndroidX Lifecycle Runtime/ViewModel Compose | 2.9.4 | 生命周期和状态 | Apache-2.0 |
@@ -106,7 +105,6 @@ Apache-2.0。Compose BOM 解析出的版本记录为本次 Gradle 审计结果�
 
 - AndroidX/Compose：https://github.com/androidx/androidx
 - sherpa-onnx：https://github.com/k2-fsa/sherpa-onnx
-- ONNX Runtime：https://github.com/microsoft/onnxruntime
 - Retrofit：https://github.com/square/retrofit
 - OkHttp/Okio：https://github.com/square/okhttp 和 https://github.com/square/okio
 - Coil：https://github.com/coil-kt/coil
@@ -147,23 +145,16 @@ Gradle 会把一个项目拆成很多 Maven artifact。为避免把同一许可�
 
 | 材料 | 仓库路径 | 来源与版本 | 许可证/使用条款 | 结论 |
 | --- | --- | --- | --- | --- |
-| chaowen Piper ONNX | `android/app/src/main/assets/tts/piper_zh/voices/chaowen.onnx` | 原始集合 [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices)，int8 镜像 revision `19375e11252db7afffa04181e114adab3db4219b` | 权重 MIT；模型卡称训练数据集为 CC0-1.0，并注明由小雅微调 | 保留 MIT 文本、模型卡、来源和转换说明 |
-| xiao_ya Piper ONNX | `android/app/src/main/assets/tts/piper_zh/voices/xiao_ya.onnx` | 原始集合 [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices)，int8 镜像 revision `c8fb5de2a0fc365031013688c39238402c88e3ab` | 权重 MIT；模型卡称 BZNSYP/Data Baker 训练数据仅限非商业使用 | 非商业发布保留权重与数据来源声明；商业化前重新核查 |
-| Piper 中文 lexicon/tokens/FST | `phrase-pinyin-data/base_lexicon.txt`、`assets/tts/piper_zh/common/*` | 与上述 MIT Piper 中文模型包一起取得 | MIT | 保留 Piper MIT 文本和来源 |
-| g2pW v2 ONNX 与规则 | `assets/g2pw/*`、`g2pw-data/*` | [g2pW](https://github.com/GitYCC/g2pW)，模型镜像 revision `d8a5045bf29862e6740e01b52f73526b069075ec`；本地模型做过 int8 动态量化 | 上游 g2pW 为 Apache-2.0；Hugging Face 镜像自身无模型卡和 license 元数据 | 保留 Apache-2.0 文本、来源和修改说明；最好从上游正式模型链接复核哈希 |
-| bert-base-chinese vocabulary | `assets/g2pw/vocab.txt` | Google BERT / bert-base-chinese | Apache-2.0 | 保留来源与许可证 |
-| phrase-pinyin-data | `phrase-pinyin-data/pinyin.txt` | 0.19.0，revision `cee0ed6e6e4898580cafd2bd5e3723e20b214aa0` | MIT | 已附 `phrase-pinyin-data/LICENSE` |
-| 本项目本地发音修正 | `phrase-pinyin-data/local_overrides.txt` | 本项目原创 | AGPL-3.0-only | 由根目录 `LICENSE` 覆盖 |
+| Matcha 声学模型、词典、eSpeak 与 FST | `android/app/src/main/assets/tts/matcha_zh_en/` | [ModelScope 原模型](https://modelscope.cn/models/dengcunqin/matcha_tts_zh_en_20251010)；[sherpa-onnx tts-models](https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models) 归档 SHA-256 `271b804af570400d3bcdcb53bf6e53cc9f75180ee763b9f13eb5eaf2b0d086ef` | 模型元数据标注 Apache-2.0；训练数据来源信息不完整 | 已附 Apache-2.0 文本、上游 README、来源和校验值；商业发布前重新核查训练数据来源 |
+| Vocos 16 kHz universal ONNX | `android/app/src/main/assets/tts/matcha_zh_en/vocos-16khz-univ.onnx` | [sherpa-onnx vocoder-models](https://github.com/k2-fsa/sherpa-onnx/releases/tag/vocoder-models)；上游 [gemelo-ai/vocos](https://github.com/gemelo-ai/vocos) | MIT | 已附 Vocos MIT 文本、来源和校验值 |
 
 文件校验值：
 
 | 文件 | SHA-256 |
 | --- | --- |
 | `sherpa-onnx-1.13.4.aar` | `daf532d343e741df96c15e25f6da90420fc1b54126ee23dc8d49dba617033552` |
-| `chaowen.onnx` | `d5ad252f165b26bcecb01759d07cc6cf4cf14045bac8752947a5fb35080c5e6b` |
-| `xiao_ya.onnx` | `d4145488f47914614116e4f77338532d827cfccf5f5d7a58c15c5e54cc5434ba` |
-| `g2pw/model.onnx` | `000a3dc34bebf3adf8a898d17b6be77c527b7d15ddd672b6abf028a73b81a8e1` |
-| `phrase-pinyin-data/pinyin.txt` | `dff030d54e9c9ba48d187fba037d00af410f01c9a867528db6899f539f6e86f7` |
+| `matcha_zh_en/model-steps-3.onnx` | `524286bf6cf11be74329ae1c682ac69e34d6860c2ea9fd1290319d561540b16a` |
+| `matcha_zh_en/vocos-16khz-univ.onnx` | `b599142a1fb8ff03de3e84ac35ff537c619e56f4267a6fe894851a42844acf9e` |
 
 ## 构建、平台与容器工具
 
@@ -187,16 +178,15 @@ Web 字体依赖。CSS 里列出的系统字体只是运行设备上的候选字
 ## 发布前检查表
 
 - [x] 根目录使用 `AGPL-3.0-only`，与 PyMuPDF 的开源授权路径保持一致。
-- [x] 按原始 `rhasspy/piper-voices` 仓库级 MIT 记录两个 Piper 权重，并随资产保留模型卡摘要。
-- [ ] 商业化前重新核查小雅的 BZNSYP/Data Baker 数据来源条款；当前项目按非商业方式发布。
-- [ ] 保留根目录 `THIRD_PARTY_NOTICES.md`、`phrase-pinyin-data/LICENSE` 和 `g2pw-data/LICENSE`。
+- [x] 记录 Matcha、Vocos 的来源、版本、校验值和随包许可证文本。
+- [ ] 商业化前重新核查 Matcha 模型训练数据的来源与使用条款。
+- [ ] 保留根目录 `THIRD_PARTY_NOTICES.md` 和 `assets/tts/matcha_zh_en/` 下的许可证文本。
 - [ ] 在 App 的“关于/开源许可”页面或随 APK 文档中提供第三方声明；当前 App 尚未实现该页面。
 - [ ] 检查 `packaging.resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"` 是否移除了依赖要求保留的
   许可证/NOTICE；不要只为了去重而丢弃全部声明。
 - [ ] 为 Python 依赖生成锁文件；为 Docker 基础镜像固定 digest，并按最终镜像生成 SBOM。
 - [ ] 不将 `.env`、数据库、测试截图、构建目录、历史 APK 或开发签名密钥提交到源码仓库。
-- [x] `android/app/src/main/assets/g2pw/model.onnx` 为 159,287,333 字节，使用 Git LFS，避免超过
-  GitHub 普通 Git 的 100 MB 单文件限制。
+- [x] Matcha 声学模型和 Vocos ONNX 使用 Git LFS；归档内全部 TTS 资产约 142 MiB。
 - [ ] 发布 APK/镜像前，以最终产物重新生成依赖清单，并核对 Apache NOTICE、MPL、EPL、AGPL 等条款。
 
 ## 复核命令

@@ -8,5 +8,4 @@
 
 # sherpa-onnx enters Kotlin API methods from JNI while generating speech.
 -keep class com.k2fsa.sherpa.onnx.** { *; }
--keep class ai.onnxruntime.** { *; }
 -keepclasseswithmembernames class * { native <methods>; }

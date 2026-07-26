@@ -31,7 +31,7 @@
 - PDF：保留原始固定版式，按页渲染、缩放、原生书签和有限页缓存，不执行 OCR。
 - 离线阅读：整本下载、断点续传、SHA-256 校验、失败重试和缓存管理。
 - 进度同步：本地优先、离线重试、多设备冲突处理。
-- 中文朗读：sherpa-onnx + Piper + g2pW，内置小雅和超文音色，正文不上传第三方服务。
+- 中英朗读：sherpa-onnx + Matcha-TTS，内置单一女声，全程端侧生成，正文不上传第三方服务。
 - 安全边界：网页 Cookie 与 App Bearer 会话分离，存储路径限制，CORS/API 文档默认关闭。
 
 ## Docker 快速部署 / Quick Deploy
@@ -137,7 +137,8 @@ GitHub Release 中的 APK 使用项目发布密钥签名；自行构建的 Debug
 
 ## 克隆与大文件
 
-g2pW 模型约 152 MiB，使用 Git LFS 管理。构建 Android App 前需要安装
+Matcha 声学模型、Vocos 与文本处理资源合计约 142 MiB；两个 ONNX 文件使用 Git LFS 管理。构建
+Android App 前需要安装
 [Git LFS](https://git-lfs.com/)：
 
 ```bash
@@ -234,6 +235,5 @@ THIRD_PARTY_NOTICES.md   第三方软件、模型和数据声明
 项目原创代码采用 [GNU Affero General Public License v3.0 only](LICENSE)。部署修改版后端并通过网络
 向用户提供服务时，也必须向这些用户提供对应源码。
 
-第三方库、模型和数据保留各自许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。Piper
-小雅与超文权重来自仓库级 MIT 的 `rhasspy/piper-voices`；小雅模型卡同时记录了 BZNSYP/Data Baker
-训练数据的非商业条款，因此商业化前需要重新核查该数据来源。
+第三方库、模型和数据保留各自许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+Matcha 模型元数据标注 Apache-2.0，Vocos 为 MIT；模型训练数据来源信息仍不完整，商业化前需要重新核查。

@@ -17,16 +17,15 @@ internal object SentenceSegmenter {
     fun segment(
         text: String,
         startOffset: Int,
-        protectedPhrases: List<PhraseMatch> = emptyList(),
     ): List<NarrationSegment> {
         if (text.isEmpty()) return emptyList()
         val result = mutableListOf<NarrationSegment>()
-        var start = adjustStartOffset(startOffset.coerceIn(0, text.length), protectedPhrases)
+        var start = startOffset.coerceIn(0, text.length)
         while (start < text.length) {
             while (start < text.length && text[start].isWhitespace()) start++
             if (start >= text.length) break
 
-            val end = chooseEnd(text, start, protectedPhrases)
+            val end = chooseEnd(text, start)
             val spoken = text.substring(start, end).trim()
             if (spoken.isNotEmpty()) result += NarrationSegment(start, end, spoken)
             start = end.coerceAtLeast(start + 1)
@@ -34,7 +33,7 @@ internal object SentenceSegmenter {
         return result
     }
 
-    private fun chooseEnd(text: String, start: Int, protectedPhrases: List<PhraseMatch>): Int {
+    private fun chooseEnd(text: String, start: Int): Int {
         val hardLimit = (start + MAX_SEGMENT_LENGTH).coerceAtMost(text.length)
 
         val strong = mutableListOf<Int>()
@@ -61,10 +60,6 @@ internal object SentenceSegmenter {
             }
             if (breakType != null) {
                 val endpoint = consumeBoundary(text, index, hardLimit)
-                if (endpoint.isInsidePhrase(protectedPhrases)) {
-                    index++
-                    continue
-                }
                 val closesCurrentQuote = (index + 1 until endpoint).any { position ->
                     text[position] in closingQuotes
                 }
@@ -84,7 +79,7 @@ internal object SentenceSegmenter {
         selectWeak(secondary, start)?.let { return it }
         selectWeak(soft, start)?.let { return it }
         if (hardLimit == text.length) return text.length
-        return avoidBrokenBoundary(text, hardLimit, start, protectedPhrases)
+        return avoidBrokenBoundary(text, hardLimit)
     }
 
     private fun selectStrong(points: List<Int>, start: Int): Int? {
@@ -128,25 +123,13 @@ internal object SentenceSegmenter {
     private fun avoidBrokenBoundary(
         text: String,
         proposed: Int,
-        segmentStart: Int,
-        protectedPhrases: List<PhraseMatch>,
     ): Int {
         var end = proposed.coerceIn(1, text.length)
-        val phrase = protectedPhrases.firstOrNull { it.start < end && end < it.end }
-        if (phrase != null) {
-            end = if (phrase.start > segmentStart) phrase.start else phrase.end
-        }
         if (end < text.length && end > 0 && Character.isHighSurrogate(text[end - 1]) && Character.isLowSurrogate(text[end])) {
             end--
         }
         return end
     }
-
-    private fun adjustStartOffset(startOffset: Int, protectedPhrases: List<PhraseMatch>): Int =
-        protectedPhrases.firstOrNull { it.start < startOffset && startOffset < it.end }?.start ?: startOffset
-
-    private fun Int.isInsidePhrase(protectedPhrases: List<PhraseMatch>): Boolean =
-        protectedPhrases.any { it.start < this && this < it.end }
 
     private enum class BreakType { STRONG, SECONDARY, SOFT }
 }
