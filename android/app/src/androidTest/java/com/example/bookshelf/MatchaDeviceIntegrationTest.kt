@@ -17,40 +17,42 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class MatchaDeviceIntegrationTest {
     @Test
-    fun generatesChineseEnglishSpeechAndReportsPerformance() = runBlocking {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val memoryBeforeMb = Debug.getPss() / 1024f
-        val initStarted = SystemClock.elapsedRealtime()
-        val engine = SherpaMatchaEngine(context, NarrationVoice.FEMALE)
-        val initMs = SystemClock.elapsedRealtime() - initStarted
-        val memoryAfterInitMb = Debug.getPss() / 1024f
+    fun generatesChineseEnglishSpeechAndReportsPerformance() {
+        runBlocking {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            val memoryBeforeMb = Debug.getPss() / 1024f
+            val initStarted = SystemClock.elapsedRealtime()
+            val engine = SherpaMatchaEngine(context, NarrationVoice.FEMALE)
+            val initMs = SystemClock.elapsedRealtime() - initStarted
+            val memoryAfterInitMb = Debug.getPss() / 1024f
 
-        try {
-            val results = TEST_SENTENCES.mapIndexed { index, sentence ->
-                val output = File(context.cacheDir, "matcha-device-$index.wav")
-                try {
-                    engine.generate(sentence, output).also { generated ->
-                        assertTrue(output.isFile && output.length() > WAV_HEADER_BYTES)
-                        assertTrue(generated.durationMs > 0)
-                        assertEquals(EXPECTED_SAMPLE_RATE, generated.sampleRate)
+            try {
+                val results = TEST_SENTENCES.mapIndexed { index, sentence ->
+                    val output = File(context.cacheDir, "matcha-device-$index.wav")
+                    try {
+                        engine.generate(sentence, output).also { generated ->
+                            assertTrue(output.isFile && output.length() > WAV_HEADER_BYTES)
+                            assertTrue(generated.durationMs > 0)
+                            assertEquals(EXPECTED_SAMPLE_RATE, generated.sampleRate)
+                        }
+                    } finally {
+                        output.delete()
                     }
-                } finally {
-                    output.delete()
                 }
+                val rtfs = results.map { result ->
+                    result.generationTimeMs.toDouble() / result.durationMs
+                }.sorted()
+                val p50 = rtfs[rtfs.size / 2]
+                val p95 = rtfs[(rtfs.size * 95 / 100).coerceAtMost(rtfs.lastIndex)]
+                Log.i(
+                    TAG,
+                    "initMs=$initMs memoryDeltaMb=${memoryAfterInitMb - memoryBeforeMb} " +
+                        "rtfP50=${"%.3f".format(p50)} rtfP95=${"%.3f".format(p95)} " +
+                        "samples=${results.size}",
+                )
+            } finally {
+                engine.close()
             }
-            val rtfs = results.map { result ->
-                result.generationTimeMs.toDouble() / result.durationMs
-            }.sorted()
-            val p50 = rtfs[rtfs.size / 2]
-            val p95 = rtfs[(rtfs.size * 95 / 100).coerceAtMost(rtfs.lastIndex)]
-            Log.i(
-                TAG,
-                "initMs=$initMs memoryDeltaMb=${memoryAfterInitMb - memoryBeforeMb} " +
-                    "rtfP50=${"%.3f".format(p50)} rtfP95=${"%.3f".format(p95)} " +
-                    "samples=${results.size}",
-            )
-        } finally {
-            engine.close()
         }
     }
 
