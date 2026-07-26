@@ -75,12 +75,15 @@ internal class SherpaMatchaEngine(
 
     override suspend fun generate(text: String, outputFile: File): GeneratedTtsAudio {
         check(!closed) { "语音模型已经释放" }
-        require(text.isNotBlank()) { "朗读文本不能为空" }
+        val spokenText = NarrationTextNormalizer.normalize(text)
+        require(spokenText.codePoints().anyMatch { codePoint -> Character.isLetterOrDigit(codePoint) }) {
+            "朗读文本不包含可发音内容"
+        }
         outputFile.parentFile?.mkdirs()
 
         val startedAt = System.nanoTime()
         val audio = tts.generateWithConfig(
-            text = text,
+            text = spokenText,
             config = GenerationConfig(
                 speed = SYNTHESIS_SPEED,
                 silenceScale = SILENCE_SCALE,
@@ -109,7 +112,7 @@ internal class SherpaMatchaEngine(
         const val SYNTHESIS_SPEED = 1.0f
         const val MODEL_VERSION = "sherpa-onnx-1.13.4-matcha-icefall-zh-en-271b804a-vocos-b599142a"
         const val SYNTHESIS_CONFIG_VERSION =
-            "normal-speed-matcha-zh-en-silence-0.2-lexicon-210b7793-v2"
+            "normal-speed-matcha-zh-en-silence-0.2-lexicon-210b7793-punctuation-v3"
         private const val MODEL_ROOT = "tts/matcha_zh_en"
         internal const val MATCHA_LEXICONS =
             "$MODEL_ROOT/novel-phrase-lexicon.txt,$MODEL_ROOT/lexicon.txt"

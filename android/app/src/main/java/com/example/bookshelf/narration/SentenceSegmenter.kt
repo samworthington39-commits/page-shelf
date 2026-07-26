@@ -27,7 +27,9 @@ internal object SentenceSegmenter {
 
             val end = chooseEnd(text, start)
             val spoken = text.substring(start, end).trim()
-            if (spoken.isNotEmpty()) result += NarrationSegment(start, end, spoken)
+            if (NarrationTextNormalizer.hasSpeakableContent(spoken)) {
+                result += NarrationSegment(start, end, spoken)
+            }
             start = end.coerceAtLeast(start + 1)
         }
         return result
