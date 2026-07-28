@@ -1,0 +1,70 @@
+name: page-shelf-tts
+
+services:
+    qwen:
+        image: page-shelf/qwen-tts:0.2.0
+        platform: linux/amd64
+        build:
+            context: .
+            args:
+                UBUNTU_IMAGE: ubuntu:22.04
+                TORCH_VERSION: "2.8.0"
+        init: true
+        devices:
+            - /dev/dri:/dev/dri
+        group_add:
+            - "${TTS_DRI_GID:-109}"
+            - "${TTS_VIDEO_GID:-44}"
+        ports:
+            - "${TTS_PORT:-8010}:8010"
+        environment:
+            TTS_MODEL_ID: "${TTS_MODEL_ID:-Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice}"
+            TTS_RUNTIME: "${TTS_RUNTIME:-openvino}"
+            TTS_DEVICE: cpu
+            TTS_DTYPE: float32
+            TTS_ATTENTION_IMPLEMENTATION: eager
+            TTS_OPENVINO_DEVICE: "${TTS_OPENVINO_DEVICE:-GPU}"
+            TTS_OPENVINO_ALLOW_CPU_FALLBACK: "${TTS_OPENVINO_ALLOW_CPU_FALLBACK:-true}"
+            TTS_OPENVINO_AUTO_CONVERT: "${TTS_OPENVINO_AUTO_CONVERT:-true}"
+            TTS_OPENVINO_MODEL_DIR: /models/openvino/qwen3-tts-0.6b-customvoice
+            TTS_OPENVINO_CACHE_DIR: /models/openvino-cache
+            TTS_OPENVINO_HELPER_PATH: /opt/qwen-openvino/qwen_3_tts_helper.py
+            TTS_DEFAULT_VOICE: "${TTS_DEFAULT_VOICE:-Serena}"
+            TTS_DEFAULT_LANGUAGE: "${TTS_DEFAULT_LANGUAGE:-Chinese}"
+            TTS_MAX_INPUT_CHARS: "${TTS_MAX_INPUT_CHARS:-500}"
+            TTS_LOAD_ON_STARTUP: "true"
+            TTS_ENABLE_API_DOCS: "false"
+            TTS_API_KEY: "${TTS_API_KEY:-}"
+            TTS_TORCH_THREADS: "${TTS_TORCH_THREADS:-0}"
+            OMP_NUM_THREADS: "${OMP_NUM_THREADS:-4}"
+            MKL_NUM_THREADS: "${MKL_NUM_THREADS:-4}"
+            HF_ENDPOINT: "${HF_ENDPOINT:-https://huggingface.co}"
+            HF_HOME: /models/huggingface
+            TORCH_HOME: /models/torch
+            XDG_CACHE_HOME: /models/cache
+            NUMBA_CACHE_DIR: /models/numba
+            HF_HUB_DISABLE_TELEMETRY: "1"
+        volumes:
+            - qwen-model-cache:/models
+        read_only: true
+        tmpfs:
+            - /tmp:size=1g,mode=1777
+        shm_size: 4gb
+        cap_drop:
+            - ALL
+        security_opt:
+            - no-new-privileges:true
+        restart: unless-stopped
+        healthcheck:
+            test:
+                - CMD
+                - python3
+                - -c
+                - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health', timeout=3)"
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 30s
+
+volumes:
+    qwen-model-cache:

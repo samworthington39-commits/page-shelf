@@ -2,10 +2,12 @@
 
 ```text
 backend/app/
-  routers/auth.py              移动端 Bearer 登录与会话验证
+  routers/auth.py              Android 与网页阅读器的 Bearer 登录和会话验证
   routers/books.py             书籍、目录、单章、封面与原始文件
   routers/progress.py          指定设备进度与跨设备最新进度
-  routers/admin.py             仅浏览器使用的后端管理接口
+  routers/admin.py             仅管理后台使用的 Cookie 接口
+  routers/reader.py            网页阅读器入口与安全响应头
+  reader/                      原生 HTML/CSS/JavaScript 网页阅读器
   services/                    TXT/EPUB/PDF 解析、扫描与文件流
 
 android/app/src/main/java/com/example/bookshelf/
@@ -16,14 +18,35 @@ android/app/src/main/java/com/example/bookshelf/
   worker/                      整书下载和离线进度重试
   ui/library/                  书架、搜索、缓存/错误/空状态
   ui/reader/                   TXT/EPUB 与 PDF 独立阅读器
+  narration/                   Matcha 端侧合成、分句、缓存与播放队列
   ui/manage/                   App 本地下载、缓存和默认阅读设置
+
+tts/
+  page_shelf_tts/              独立 Qwen3-TTS HTTP API 与运行时
+  tests/                       不下载模型的 API、配置和运行时单元测试
+  compose.yaml                 Intel 核显/OpenVINO 实验部署
 ```
 
 ## 认证
 
-Android 只在登录请求中提交管理密码。后端验证后签发 HMAC 短期会话；普通阅读请求使用
-`Authorization: Bearer`。Android Keystore 加密保存密码和会话，以便启动和后台任务在会话过期后
-自动续登。OkHttp 只启用 BASIC 日志，不记录请求头、密码、Token 或正文。
+Android 和网页阅读器只在登录请求中提交管理密码。后端验证后签发 HMAC 短期会话；普通阅读请求使用
+`Authorization: Bearer`。网页阅读器只把会话保存在当前标签页的 `sessionStorage`，不持久化密码；
+书架 PIN 仅保存在页面内存。Android 使用 Keystore 加密保存可撤销的短期会话，不持久化管理密码；
+会话过期后需要重新输入密码。OkHttp 只启用 BASIC 日志，不记录请求头、密码、Token 或正文。
+
+管理后台使用独立作用域的 HttpOnly Cookie。管理 Cookie 不能作为阅读 Bearer 会话使用，阅读会话也
+不能调用管理接口。
+
+## 网页阅读器
+
+网页阅读器由 FastAPI 同源提供，不需要单独构建前端。它复用书架、书籍、目录、文件和进度 API：
+
+- TXT/EPUB 每次只请求当前章节，滚动到底部后自动进入下一章；
+- PDF 先通过受保护的文件接口取得原文件，再交给浏览器内置 PDF 查看能力显示当前页；
+- 每个浏览器生成独立设备 ID，与 Android 一样把进度写入统一进度模型；
+- 主题、字体、字号和最后访问书架保存在 `localStorage`，密码与书架 PIN 不写入持久存储。
+
+网页阅读器不提供离线下载或端侧朗读；这两项能力目前只在 Android App 中提供。
 
 ## 章节窗口
 
@@ -61,3 +84,13 @@ WorkManager 在联网后执行同步；失败采用上限 6 小时的指数退�
 后端从 Docker 授权挂载或 `STORAGE_ALLOWED_ROOTS` 得到可用范围，网页管理后台只能在范围内登记
 书架。移动端没有目录扫描、上传、文件管理或用户管理入口。移除后端书架登记或删除手机本地下载
 都不会删除 NAS 原始文件。
+
+## 独立 Qwen TTS 边界
+
+`tts/` 是第二个、完全独立的 Docker 项目。它不读取页架数据库、书架或图书文件，只接收调用方提交的
+文本并返回完整 WAV。`/health` 和 `/ready` 公开用于容器探针；`/v1/voices` 与
+`/v1/audio/speech` 可使用独立 Bearer Token 保护。模型、OpenVINO IR 和编译缓存保存在自己的 Docker
+卷中。
+
+该服务当前用于低功耗 Intel NAS 的性能验证，网页阅读器和 Android App 都没有调用它。客户端的正式
+朗读边界仍是 Android 端侧 Matcha。

@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import get_settings
 from .db import initialize_database
 from .middleware import ReaderTextGZipMiddleware
-from .routers import admin, auth, books, library, progress, shelves
+from .routers import admin, auth, books, library, progress, reader, shelves
 from .services.auto_scanner import auto_scan_lifespan
 
 
@@ -90,6 +90,10 @@ app.include_router(admin.router, prefix="/api/v1")
 admin_directory = Path(__file__).parent / "admin"
 app.mount("/admin/assets", StaticFiles(directory=admin_directory), name="admin-assets")
 app.add_api_route("/admin", admin.admin_page, methods=["GET"], include_in_schema=False)
+
+reader_directory = Path(__file__).parent / "reader"
+app.mount("/reader/assets", StaticFiles(directory=reader_directory), name="reader-assets")
+app.add_api_route("/reader", reader.reader_page, methods=["GET"], include_in_schema=False)
 
 
 @app.get("/health")

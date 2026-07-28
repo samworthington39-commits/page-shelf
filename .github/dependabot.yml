@@ -9,6 +9,15 @@ updates:
       - dependencies
       - backend
 
+  - package-ecosystem: pip
+    directory: /tts
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - tts
+
   - package-ecosystem: gradle
     directory: /android
     schedule:
@@ -26,6 +35,15 @@ updates:
     labels:
       - dependencies
       - docker
+
+  - package-ecosystem: docker
+    directory: /tts
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - tts
 
   - package-ecosystem: github-actions
     directory: /

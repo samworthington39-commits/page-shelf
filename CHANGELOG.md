@@ -5,6 +5,13 @@
 
 ## Unreleased
 
+### Added
+
+- 新增 `/reader` 网页阅读器，支持书架切换与搜索、受保护书架解锁、TXT/EPUB 连续纵向阅读和自动续章、
+  PDF 原版页面与目录导航、阅读进度同步以及本地阅读偏好。
+- 新增独立的实验性 Qwen3-TTS Docker 服务，支持 OpenVINO GPU/CPU 回退、完整 WAV 接口、可选
+  Bearer Token、就绪状态和 RTF 基准；该服务尚未接入现有客户端。
+
 ### Changed
 
 - Android 离线朗读测试分支改用 `matcha-icefall-zh-en` 与 Vocos，支持中英文混合文本。

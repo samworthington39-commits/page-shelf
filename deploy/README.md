@@ -27,6 +27,7 @@ docker pull ghcr.io/samworthington39-commits/page-shelf:latest
 ## 首次登录 / First Login
 
 - 管理界面 / Admin UI: `http://<服务器IP>:8000/admin`
+- 网页阅读器 / Web reader: `http://<服务器IP>:8000/reader`
 - Android 服务器地址 / App server URL: `http://<服务器IP>:8000`
 - 默认密码 / Default password: `112233`
 - 健康检查 / Health check: `http://<服务器IP>:8000/health`
