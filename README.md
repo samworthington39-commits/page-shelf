@@ -85,15 +85,25 @@ docker compose up -d
 docker pull ghcr.io/samworthington39-commits/page-shelf:v1.0.9
 ```
 
-首次部署后使用以下信息：
+部署完成后，各网页界面的完整 URL 如下：
+
+| 界面 | URL | 用途 |
+| --- | --- | --- |
+| 管理后台 | `http://<服务器IP>:8000/admin` | 首次改密、存储位置、书架、扫描、元数据、封面和系统维护 |
+| 网页书架与阅读器 | `http://<服务器IP>:8000/reader` | 浏览书架，阅读 TXT、EPUB 和 PDF，同步阅读进度 |
+| Swagger API 文档（可选） | `http://<服务器IP>:8000/docs` | 仅在设置 `ENABLE_API_DOCS=true` 后开放 |
+| ReDoc API 文档（可选） | `http://<服务器IP>:8000/redoc` | 仅在设置 `ENABLE_API_DOCS=true` 后开放 |
+
+管理后台中的登录、书架管理和系统维护是同一个单页界面，没有各自独立的 URL。项目未提供根路径首页，
+直接访问 `http://<服务器IP>:8000/` 会返回 404。
+
+其他连接信息：
 
 | 项目 | 地址或内容 |
 | --- | --- |
-| 管理界面 | `http://<服务器IP>:8000/admin` |
-| 网页阅读器 | `http://<服务器IP>:8000/reader` |
 | Android App 服务器地址 | `http://<服务器IP>:8000`，不要添加 `/admin` 或 `/api/v1` |
+| 健康检查接口 | `http://<服务器IP>:8000/health`，这是接口而不是网页界面 |
 | 默认管理密码 | `112233`；首次登录后必须立即修改 |
-| 健康检查 | `http://<服务器IP>:8000/health` |
 | 书籍目录 | 宿主机 `library/`，容器内 `/library` |
 | 持久数据 | 宿主机 `data/`，包括数据库、封面和管理凭据 |
 
