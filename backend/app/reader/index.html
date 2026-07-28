@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="paper" data-reader-font="song">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f3efe4">
+  <title>页架 · 网页阅读</title>
+  <link rel="icon" href="/reader/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/reader/assets/reader.css">
+  <script src="/reader/assets/reader.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到正文</a>
+  <div class="paper-texture" aria-hidden="true"></div>
+
+  <main id="login-view" class="login-view">
+    <section class="login-story" aria-labelledby="login-title">
+      <div class="brand-seal" aria-hidden="true">页</div>
+      <p class="eyebrow">PAGE SHELF · WEB READER</p>
+      <h1 id="login-title">翻开书页，<br>让喧闹留在门外。</h1>
+      <p class="login-lede">从浏览器进入你的私人书架。章节、目录与阅读进度，仍由自己的服务器保管。</p>
+      <div class="login-lines" aria-hidden="true"><span></span><span></span><span></span></div>
+    </section>
+
+    <section class="login-panel" aria-label="访问验证">
+      <div class="theme-switcher compact" aria-label="阅读配色">
+        <button class="theme-option" type="button" data-theme-choice="paper">纸白</button>
+        <button class="theme-option" type="button" data-theme-choice="sepia">护眼</button>
+        <button class="theme-option" type="button" data-theme-choice="dark">夜间</button>
+      </div>
+      <div class="login-form-wrap">
+        <p class="section-label">01 / ACCESS</p>
+        <h2>进入书房</h2>
+        <p class="muted">请输入服务器访问密码。会话只保留在当前浏览器标签页中。</p>
+        <form id="login-form" class="login-form">
+          <input type="text" name="username" value="reader" autocomplete="username" hidden tabindex="-1">
+          <label for="reader-password">访问密码</label>
+          <div class="password-field">
+            <input id="reader-password" name="password" type="password" autocomplete="current-password" required autofocus>
+            <button id="password-toggle" type="button" aria-label="显示密码" aria-pressed="false">显示</button>
+          </div>
+          <p id="login-error" class="form-error" role="alert"></p>
+          <button id="login-submit" class="primary-button" type="submit">
+            <span>进入书架</span><span aria-hidden="true">→</span>
+          </button>
+        </form>
+      </div>
+      <p class="microcopy"><span aria-hidden="true">●</span> 访问由你的 Page Shelf 后端验证</p>
+    </section>
+  </main>
+
+  <div id="library-view" class="app-view" hidden>
+    <header class="app-header">
+      <a class="wordmark" href="/reader" aria-label="页架首页">
+        <span aria-hidden="true">页</span>
+        <strong>页架</strong>
+      </a>
+      <div class="display-controls" aria-label="显示设置">
+        <div class="theme-switcher" aria-label="阅读配色">
+          <button class="theme-option" type="button" data-theme-choice="paper" title="纸白模式">纸白</button>
+          <button class="theme-option" type="button" data-theme-choice="sepia" title="护眼模式">护眼</button>
+          <button class="theme-option" type="button" data-theme-choice="dark" title="黑暗模式">夜间</button>
+        </div>
+        <label class="font-select-wrap">
+          <span class="sr-only">阅读字体</span>
+          <select class="font-select" aria-label="阅读字体">
+            <option value="song">宋体</option>
+            <option value="kai">楷体</option>
+            <option value="sans">黑体</option>
+          </select>
+        </label>
+        <a id="admin-link" class="quiet-button admin-link" href="/admin#books">管理</a>
+        <button id="logout-button" class="quiet-button" type="button">退出</button>
+      </div>
+    </header>
+
+    <main id="main-content" class="library-main">
+      <section class="library-heading" aria-labelledby="library-title">
+        <div>
+          <p class="section-label">MY LIBRARY</p>
+          <h1 id="library-title">我的书架</h1>
+          <p id="library-summary" class="muted">正在整理书架……</p>
+        </div>
+        <label class="search-field">
+          <span class="sr-only">搜索书名或作者</span>
+          <span aria-hidden="true">⌕</span>
+          <input id="book-search" type="search" placeholder="搜索书名或作者" autocomplete="off">
+        </label>
+      </section>
+
+      <nav id="shelf-tabs" class="shelf-tabs" aria-label="书架切换"></nav>
+
+      <section class="shelf-heading" aria-live="polite">
+        <div>
+          <p id="shelf-position" class="shelf-position"></p>
+          <h2 id="shelf-title">—</h2>
+        </div>
+        <p id="shelf-meta" class="muted"></p>
+      </section>
+
+      <div id="library-content" class="library-content" aria-live="polite">
+        <div class="loading-state">
+          <span></span><span></span><span></span>
+          <p>正在取书……</p>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <span>PAGE SHELF / WEB READER</span>
+      <span>纵向阅读 · 进度同步</span>
+    </footer>
+  </div>
+
+  <div id="reader-view" class="reader-view" hidden>
+    <header class="reader-header">
+      <button id="back-to-library" class="icon-text-button" type="button">
+        <span aria-hidden="true">←</span><span>书架</span>
+      </button>
+      <div class="reader-book-title">
+        <strong id="reader-book-name">—</strong>
+        <span id="reader-book-author"></span>
+      </div>
+      <nav id="reader-toolbar" class="reader-toolbar" aria-label="章节导航">
+        <button class="previous-control" type="button"><span aria-hidden="true">←</span><span>上一章</span></button>
+        <button class="toc-control" type="button"><span aria-hidden="true">☷</span><span>目录</span></button>
+        <button class="next-control" type="button"><span>下一章</span><span aria-hidden="true">→</span></button>
+      </nav>
+      <div class="reader-settings" aria-label="阅读设置">
+        <div class="theme-switcher reader-theme-switcher" aria-label="阅读配色">
+          <button class="theme-option" type="button" data-theme-choice="paper" title="纸白模式">纸</button>
+          <button class="theme-option" type="button" data-theme-choice="sepia" title="护眼模式">护</button>
+          <button class="theme-option" type="button" data-theme-choice="dark" title="黑暗模式">夜</button>
+        </div>
+        <label class="font-select-wrap">
+          <span class="sr-only">阅读字体</span>
+          <select class="font-select" aria-label="阅读字体">
+            <option value="song">宋体</option>
+            <option value="kai">楷体</option>
+            <option value="sans">黑体</option>
+          </select>
+        </label>
+        <div class="font-size-control" aria-label="字号">
+          <button type="button" data-font-size="-1" aria-label="缩小字号">A−</button>
+          <span id="font-size-value">20</span>
+          <button type="button" data-font-size="1" aria-label="放大字号">A＋</button>
+        </div>
+      </div>
+    </header>
+    <div class="reading-progress" aria-hidden="true"><span id="reading-progress-bar"></span></div>
+
+    <main class="reader-main">
+      <article id="reader-article" class="reader-article" aria-live="polite" aria-busy="true">
+        <div class="chapter-loading">
+          <span class="loading-mark" aria-hidden="true">页</span>
+          <p>正在展开书页……</p>
+        </div>
+      </article>
+    </main>
+
+    <button id="drawer-backdrop" class="drawer-backdrop" type="button" aria-label="关闭目录" tabindex="-1"></button>
+    <aside id="toc-drawer" class="toc-drawer" aria-labelledby="toc-title" aria-hidden="true">
+      <header>
+        <div>
+          <p class="section-label">CONTENTS</p>
+          <h2 id="toc-title">目录</h2>
+        </div>
+        <button id="toc-close" class="drawer-close" type="button" aria-label="关闭目录">×</button>
+      </header>
+      <label class="toc-search">
+        <span aria-hidden="true">⌕</span>
+        <input id="toc-search-input" type="search" placeholder="搜索章节" autocomplete="off">
+      </label>
+      <p id="toc-count" class="toc-count"></p>
+      <nav id="toc-list" class="toc-list" aria-label="章节列表"></nav>
+    </aside>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="live-region" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

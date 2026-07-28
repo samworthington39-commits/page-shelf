@@ -45,9 +45,7 @@ class NarrationService : Service() {
     private var playbackJob: Job? = null
     private var chapterNavigationJob: Job? = null
     private val playbackMutex = Mutex()
-    private var engine: SherpaPiperEngine? = null
-    private val g2pwRuntime by lazy { G2pwOnnxRuntime(applicationContext) }
-    private val polyphoneResolver by lazy { G2pwOnnxPolyphoneResolver(g2pwRuntime) }
+    private var engine: SherpaMatchaEngine? = null
     private var generation = 0
     private var resumeAfterFocusGain = false
 
@@ -150,7 +148,7 @@ class NarrationService : Service() {
     }
 
     private suspend fun runNarration(request: NarrationRequest, token: Int) {
-        var localEngine: SherpaPiperEngine? = null
+        var localEngine: SherpaMatchaEngine? = null
         try {
             if (audioManager.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
                 error("其他应用正在使用音频，暂时无法开始朗读")
@@ -163,8 +161,7 @@ class NarrationService : Service() {
                 .takeIf { it >= 0 } ?: request.chapterIndex
             openingChapterIndex = openingChapterIndex.coerceIn(toc.indices)
             val selectedVoice = NarrationRuntime.state.value.voice
-            val preparedEngine = SherpaPiperEngine(applicationContext, selectedVoice, polyphoneResolver)
-            preparedEngine.warmUpPolyphoneResolver()
+            val preparedEngine = SherpaMatchaEngine(applicationContext, selectedVoice)
             localEngine = preparedEngine
             engine = preparedEngine
             val queue = TtsAudioQueue(TtsAudioCache(applicationContext), preparedEngine)
@@ -177,16 +174,9 @@ class NarrationService : Service() {
                         summary.id,
                         request.contentVersion,
                     )
-                    val phraseMatches = preparedEngine.findPhraseMatches(chapter.body)
-                    debugLog(
-                        "TTS chapter phrase matching: chars=${chapter.body.length} " +
-                            "matches=${phraseMatches.matches.size} " +
-                            "elapsedUs=${phraseMatches.elapsedNanos / 1_000}",
-                    )
                     val segments = SentenceSegmenter.segment(
                         chapter.body,
                         offset,
-                        phraseMatches.matches,
                     )
                     segments.forEachIndexed { segmentIndex, segment ->
                         emit(
@@ -526,7 +516,7 @@ class NarrationService : Service() {
         }
         Log.d(
             TAG,
-            "TTS generated: segment=${prepared.audio.id} synthesisSpeed=${SherpaPiperEngine.SYNTHESIS_SPEED} " +
+            "TTS generated: segment=${prepared.audio.id} synthesisSpeed=${SherpaMatchaEngine.SYNTHESIS_SPEED} " +
                 "playbackSpeed=${NarrationRuntime.state.value.playbackSpeed} generationTimeMs=$generationTime " +
                 "audioDurationMs=$audioDuration rtf=$realTimeFactor queueReady=$queueReady " +
                 "cacheHit=${prepared.cacheHit}",
@@ -546,7 +536,6 @@ class NarrationService : Service() {
         audioPlayer.close()
         mediaSession.release()
         serviceScope.cancel()
-        runCatching { g2pwRuntime.close() }
         super.onDestroy()
     }
 

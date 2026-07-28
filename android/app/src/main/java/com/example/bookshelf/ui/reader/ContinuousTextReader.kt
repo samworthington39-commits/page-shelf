@@ -5,8 +5,10 @@
 
 package com.example.bookshelf.ui.reader
 
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -279,6 +281,7 @@ internal fun ContinuousScrollingChapters(
     preferences: ReaderPreferences,
     colors: ReaderPalette,
     narrationHighlight: NarrationHighlight?,
+    onToggleControls: () -> Unit,
     onPositionChanged: (Int, Int) -> Unit,
     onVisiblePositionChanged: (Int, Int) -> Unit,
     onEnsureChapter: (Int) -> Unit,
@@ -289,6 +292,7 @@ internal fun ContinuousScrollingChapters(
     val entries = remember(chapters, indices) { indices.mapNotNull { index -> chapters[index]?.let { index to it } } }
     val initialIndex = entries.indexOfFirst { it.first == currentChapterIndex }.coerceAtLeast(0)
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val scope = rememberCoroutineScope()
     val measurements = remember { mutableStateMapOf<String, ChapterMeasurement>() }
     val style = readerTextStyle(preferences, colors.foreground)
     val narrationColor = Color(0xFF6E9B72).copy(alpha = 0.28f)
@@ -366,28 +370,64 @@ internal fun ContinuousScrollingChapters(
         }
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize()
-            .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
-            .windowInsetsPadding(WindowInsets.displayCutout)
-            .onSizeChanged { viewportHeight = it.height },
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(40.dp),
+    Box(
+        Modifier.fillMaxSize().pointerInput(listState, viewportHeight) {
+            detectTapGestures { point ->
+                when (scrollReaderTapAction(point.y, size.height)) {
+                    ScrollReaderTapAction.PAGE_UP -> scope.launch {
+                        listState.animateScrollBy(-scrollPageDistance(viewportHeight))
+                    }
+                    ScrollReaderTapAction.TOGGLE_CONTROLS -> onToggleControls()
+                    ScrollReaderTapAction.PAGE_DOWN -> scope.launch {
+                        listState.animateScrollBy(scrollPageDistance(viewportHeight))
+                    }
+                }
+            }
+        },
     ) {
-        itemsIndexed(entries, key = { _, entry -> entry.second.id }) { _, (chapterIndex, chapter) ->
-            ChapterStreamItem(
-                chapter = chapter,
-                chapterIndex = chapterIndex,
-                style = style,
-                highlight = narrationHighlight.takeIf { chapterIndex == currentChapterIndex },
-                narrationColor = narrationColor,
-                onMeasurement = { measurements[chapter.id] = it },
-                onDispose = { measurements.remove(chapter.id) },
-            )
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
+                .windowInsetsPadding(WindowInsets.displayCutout)
+                .onSizeChanged { viewportHeight = it.height },
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(40.dp),
+        ) {
+            itemsIndexed(entries, key = { _, entry -> entry.second.id }) { _, (chapterIndex, chapter) ->
+                ChapterStreamItem(
+                    chapter = chapter,
+                    chapterIndex = chapterIndex,
+                    style = style,
+                    highlight = narrationHighlight.takeIf { chapterIndex == currentChapterIndex },
+                    narrationColor = narrationColor,
+                    onMeasurement = { measurements[chapter.id] = it },
+                    onDispose = { measurements.remove(chapter.id) },
+                )
+            }
         }
     }
 }
+
+internal enum class ScrollReaderTapAction {
+    PAGE_UP,
+    TOGGLE_CONTROLS,
+    PAGE_DOWN,
+}
+
+internal fun scrollReaderTapAction(y: Float, height: Int): ScrollReaderTapAction {
+    if (height <= 0) return ScrollReaderTapAction.TOGGLE_CONTROLS
+    return when {
+        y < height / 3f -> ScrollReaderTapAction.PAGE_UP
+        y > height * 2f / 3f -> ScrollReaderTapAction.PAGE_DOWN
+        else -> ScrollReaderTapAction.TOGGLE_CONTROLS
+    }
+}
+
+internal fun scrollPageDistance(viewportHeight: Int): Float =
+    viewportHeight.coerceAtLeast(0) * SCROLL_PAGE_DISTANCE_FRACTION
+
+private const val SCROLL_PAGE_DISTANCE_FRACTION = 0.88f
 
 @Composable
 private fun ChapterStreamItem(

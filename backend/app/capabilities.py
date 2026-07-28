@@ -29,9 +29,17 @@ FORMAT_CAPABILITIES: Final[dict[str, dict[str, bool]]] = {
         "offline_download": True,
         "progress_sync": True,
     },
+    "mobi": {
+        "chapters": True,
+        "reflowable_text": True,
+        "font_settings": True,
+        "page_navigation": False,
+        "zoom": False,
+        "offline_download": True,
+        "progress_sync": True,
+    },
 }
 
 
 def capabilities_for(format_name: str) -> dict[str, bool]:
     return FORMAT_CAPABILITIES.get(format_name.lower(), {}).copy()
-

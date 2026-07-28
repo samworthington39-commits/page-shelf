@@ -8,7 +8,7 @@ from pathlib import Path
 
 import fitz
 
-from .epub_processor import extract_epub_cover
+from .epub_processor import EpubCover, extract_epub_cover
 
 
 MAX_INPUT_BYTES = 12 * 1024 * 1024
@@ -248,17 +248,36 @@ def _pdf_cover_bytes(path: Path) -> bytes:
         return pixmap.tobytes("jpeg", jpg_quality=JPEG_QUALITY)
 
 
-def automatic_cover(path: Path, title: str, cover_directory: Path, fingerprint: str) -> CoverResult:
-    """Refresh a TXT, EPUB or PDF automatic cover, falling back to a generated JPEG."""
+def automatic_cover(
+    path: Path,
+    title: str,
+    cover_directory: Path,
+    fingerprint: str,
+    *,
+    embedded_cover: EpubCover | None = None,
+    embedded_source: str | None = None,
+    embedded_inspected: bool = False,
+) -> CoverResult:
+    """Refresh a TXT, EPUB, MOBI or PDF automatic cover, falling back to a generated JPEG."""
     destination = cover_directory.resolve(strict=False) / f"{_safe_key(fingerprint)}.jpg"
     warnings: list[str] = []
     extension = path.suffix.lower()
     try:
+        if embedded_cover is not None:
+            stored = store_cover_bytes(embedded_cover.data, destination)
+            return CoverResult("ready", str(stored), embedded_source or "embedded", warnings)
         if extension == ".epub":
             cover = extract_epub_cover(path)
             if cover is not None:
                 stored = store_cover_bytes(cover.data, destination)
                 return CoverResult("ready", str(stored), "epub", warnings)
+        elif extension == ".mobi" and not embedded_inspected:
+            from .mobi_processor import extract_mobi_cover
+
+            cover = extract_mobi_cover(path)
+            if cover is not None:
+                stored = store_cover_bytes(cover.data, destination)
+                return CoverResult("ready", str(stored), "mobi", warnings)
         elif extension == ".pdf":
             stored = store_cover_bytes(_pdf_cover_bytes(path), destination)
             return CoverResult("ready", str(stored), "pdf", warnings)

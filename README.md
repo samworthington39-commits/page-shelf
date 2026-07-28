@@ -2,8 +2,9 @@
 
 > **NAS 图书管理器 / NAS Library Manager**
 
-页架是一款自托管的本地图书文件管理与 Android 阅读工具。后端负责扫描、整理和传输 NAS 或服务器中
-已有的 TXT、EPUB、PDF 文件，Android App 提供离线下载、阅读进度同步与完全离线的中文朗读。
+页架是一款自托管的本地图书文件管理与阅读工具。后端负责扫描、整理和传输 NAS 或服务器中已有的
+TXT、EPUB、MOBI、PDF 文件；网页阅读器提供免安装的纵向阅读，Android App 提供离线下载、阅读进度同步与
+完全离线的中文朗读。
 
 > [!IMPORTANT]
 > **项目声明 / Project notice**：本项目仅用于管理用户自己拥有或有权使用的本地图书文件，不包含、
@@ -24,15 +25,29 @@
 
 截图中的图书统计仅为界面展示示例，不随项目或 Release 分发。
 
-## 功能 / Features
+## 当前功能 / Features
 
-- 网页管理后台：登记存储位置、创建书架、扫描书籍、编辑元数据和封面。
-- TXT/EPUB：目录解析、每本书独立章节规则、左右翻页或上下滚动、字体与阅读背景设置。
-- PDF：保留原始固定版式，按页渲染、缩放、原生书签和有限页缓存，不执行 OCR。
-- 离线阅读：整本下载、断点续传、SHA-256 校验、失败重试和缓存管理。
-- 进度同步：本地优先、离线重试、多设备冲突处理。
-- 中文朗读：sherpa-onnx + Piper + g2pW，内置小雅和超文音色，正文不上传第三方服务。
-- 安全边界：网页 Cookie 与 App Bearer 会话分离，存储路径限制，CORS/API 文档默认关闭。
+### 服务端与网页
+
+- 管理后台：登记授权存储位置，创建公开、隐藏或 PIN 保护书架，手动或定时扫描书籍；支持修改书名、
+  作者、封面和单书章节拆分策略。
+- 网页阅读器：访问 `/reader` 即可登录，支持书架切换、书名/作者搜索、受保护书架解锁和阅读进度
+  同步。TXT/EPUB/MOBI 使用纵向滚动并在章末自动续接，PDF 保留原版页面和书签目录；主题、字体和字号保存
+  在当前浏览器。
+- 格式处理：TXT 支持多种章节规则与固定长度回退，EPUB 按内部导航和 spine 顺序解析；未加密的
+  MOBI 在服务端解包为可重排章节，保留可用的目录、书名、作者和内嵌封面；PDF 保留固定版式、页数和
+  原生书签，不执行 OCR。
+- 文件与安全：原始书籍只读挂载，不因移除书架或客户端缓存而删除；文件下载支持 Range、ETag 和
+  断点续传。管理 Cookie 与阅读 Bearer 会话分离，存储路径受授权根目录限制，CORS 和 API 文档默认
+  关闭。
+
+### Android App
+
+- 书架与阅读：横向切换书架、搜索书名或作者、解锁 PIN 书架；TXT/EPUB/MOBI 支持左右翻页或上下滚动，
+  PDF 支持原版按页渲染、缩放、书签导航和有限页缓存。
+- 离线能力：整本下载、断点续传、SHA-256 校验、失败重试、临时缓存清理和完全离线阅读。
+- 阅读进度：本地优先保存，联网后自动重试同步，并在跨设备或内容变化时提示冲突处理。
+- 中英朗读：sherpa-onnx + Matcha-TTS，内置单一女声，全程端侧生成，正文不上传第三方服务。
 
 ## Docker 快速部署 / Quick Deploy
 
@@ -58,20 +73,31 @@ docker compose up -d
 
 也可以从 [Releases](https://github.com/samworthington39-commits/page-shelf/releases) 下载
 `page-shelf-<版本>-docker.zip`，解压后执行 `docker compose up -d`。固定版本部署可在 `.env` 中设置
-`PAGE_SHELF_VERSION=v1.0.9`，或直接拉取：
+`PAGE_SHELF_VERSION=v1.1.0`，或直接拉取：
 
 ```bash
-docker pull ghcr.io/samworthington39-commits/page-shelf:v1.0.9
+docker pull ghcr.io/samworthington39-commits/page-shelf:v1.1.0
 ```
 
-首次部署后使用以下信息：
+部署完成后，各网页界面的完整 URL 如下：
+
+| 界面 | URL | 用途 |
+| --- | --- | --- |
+| 管理后台 | `http://<服务器IP>:8000/admin#books` | 首次改密、存储位置、书架、扫描、元数据、封面和系统维护 |
+| 网页书架与阅读器 | `http://<服务器IP>:8000/reader` | 浏览书架，阅读 TXT、EPUB、MOBI 和 PDF，同步阅读进度 |
+| Swagger API 文档（可选） | `http://<服务器IP>:8000/docs` | 仅在设置 `ENABLE_API_DOCS=true` 后开放 |
+| ReDoc API 文档（可选） | `http://<服务器IP>:8000/redoc` | 仅在设置 `ENABLE_API_DOCS=true` 后开放 |
+
+管理后台中的登录、书架管理和系统维护是同一个单页界面，没有各自独立的 URL。项目未提供根路径首页，
+直接访问 `http://<服务器IP>:8000/` 会返回 404。
+
+其他连接信息：
 
 | 项目 | 地址或内容 |
 | --- | --- |
-| 管理界面 | `http://<服务器IP>:8000/admin` |
 | Android App 服务器地址 | `http://<服务器IP>:8000`，不要添加 `/admin` 或 `/api/v1` |
+| 健康检查接口 | `http://<服务器IP>:8000/health`，这是接口而不是网页界面 |
 | 默认管理密码 | `112233`；首次登录后必须立即修改 |
-| 健康检查 | `http://<服务器IP>:8000/health` |
 | 书籍目录 | 宿主机 `library/`，容器内 `/library` |
 | 持久数据 | 宿主机 `data/`，包括数据库、封面和管理凭据 |
 
@@ -80,7 +106,7 @@ docker pull ghcr.io/samworthington39-commits/page-shelf:v1.0.9
 1. 使用默认密码 `112233` 登录并设置至少 8 位的新密码；
 2. 登记容器内路径 `/library`；
 3. 创建书架并扫描自己已有的本地图书文件；
-4. 在 Android App 中填写服务器地址和修改后的管理密码。
+4. 浏览器打开 `http://<服务器IP>:8000/reader`，或在 Android App 中填写服务器地址和修改后的管理密码。
 
 在部署服务器本机访问时，可将 `<服务器IP>` 换成 `localhost`。会话密钥会在首次启动时自动随机生成并
 保存在 `data/admin_credentials.json`。如需预先指定初始密码，可修改 `.env` 中的
@@ -97,12 +123,15 @@ cp .env.example .env
 mkdir -p library data
 ```
 
-将 TXT、EPUB 或 PDF 文件放入 `library/`，然后启动：
+将 TXT、EPUB、MOBI 或 PDF 文件放入 `library/`，然后启动：
 
 ```bash
 docker compose up -d --build
 docker compose ps
 ```
+
+MOBI 支持范围是未加密、可重排的 `.mobi` 电子书。受 DRM 保护的文件不会被绕过或导入；Print Replica
+固定版式 MOBI 请先合法转换为 PDF。单个 MOBI 最大 256 MiB，解包内容会写入容器临时目录并在导入后清理。
 
 更完整的 Docker、NAS、HTTPS、备份与无 Docker 部署步骤见
 [使用与部署文档](docs/getting-started.md)。
@@ -137,7 +166,8 @@ GitHub Release 中的 APK 使用项目发布密钥签名；自行构建的 Debug
 
 ## 克隆与大文件
 
-g2pW 模型约 152 MiB，使用 Git LFS 管理。构建 Android App 前需要安装
+Matcha 声学模型、Vocos 与文本处理资源合计约 142 MiB；两个 ONNX 文件使用 Git LFS 管理。构建
+Android App 前需要安装
 [Git LFS](https://git-lfs.com/)：
 
 ```bash
@@ -212,11 +242,11 @@ Set-Location android
 ## 项目结构
 
 ```text
-backend/                 FastAPI 后端、管理后台和测试
-android/                 Kotlin/Jetpack Compose Android App
+backend/                 FastAPI API、管理后台、网页阅读器和测试
+android/                 Kotlin/Jetpack Compose Android App 与端侧 Matcha 朗读
 docs/                    部署、架构、安全、PDF 和许可证文档
-compose.yaml             默认本地部署
-THIRD_PARTY_NOTICES.md   第三方软件、模型和数据声明
+compose.yaml             默认后端与网页部署
+THIRD_PARTY_NOTICES.md   主项目第三方软件、模型和数据声明
 ```
 
 - [架构与数据边界](docs/architecture.md)
@@ -234,6 +264,5 @@ THIRD_PARTY_NOTICES.md   第三方软件、模型和数据声明
 项目原创代码采用 [GNU Affero General Public License v3.0 only](LICENSE)。部署修改版后端并通过网络
 向用户提供服务时，也必须向这些用户提供对应源码。
 
-第三方库、模型和数据保留各自许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。Piper
-小雅与超文权重来自仓库级 MIT 的 `rhasspy/piper-voices`；小雅模型卡同时记录了 BZNSYP/Data Baker
-训练数据的非商业条款，因此商业化前需要重新核查该数据来源。
+第三方库、模型和数据保留各自许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+Matcha 模型元数据标注 Apache-2.0，Vocos 为 MIT；模型训练数据来源信息仍不完整，商业化前需要重新核查。

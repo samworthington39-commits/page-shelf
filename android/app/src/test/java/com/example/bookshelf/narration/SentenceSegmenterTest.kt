@@ -72,6 +72,16 @@ class SentenceSegmenterTest {
         assertValidSourceRanges(text, segments)
     }
 
+    @Test
+    fun skipsSegmentsThatContainOnlyPunctuationOrSymbols() {
+        val text = "“”=...\n正文会正常朗读。\n……===“”"
+
+        val segments = SentenceSegmenter.segment(text, 0)
+
+        assertEquals(listOf("正文会正常朗读。"), segments.map(NarrationSegment::text))
+        assertValidSourceRanges(text, segments)
+    }
+
     private fun assertValidSourceRanges(text: String, segments: List<NarrationSegment>) {
         assertTrue(segments.isNotEmpty())
         segments.forEach { segment ->

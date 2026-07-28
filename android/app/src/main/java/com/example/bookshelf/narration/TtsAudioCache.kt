@@ -23,9 +23,9 @@ internal class TtsAudioCache(context: Context) {
 
     suspend fun getOrGenerate(
         key: TtsCacheKey,
-        generator: SherpaPiperEngine,
+        generator: NarrationTtsEngine,
     ): CachedTtsAudio {
-        val destination = File(directory, "${key.cacheId()}.wav")
+        val destination = File(directory, "${key.cacheId(generator)}.wav")
         if (destination.isValidWav()) {
             return CachedTtsAudio(destination, durationMs = null, generationTimeMs = null, cacheHit = true)
         }
@@ -56,15 +56,15 @@ internal class TtsAudioCache(context: Context) {
 
     private fun File.isValidWav(): Boolean = isFile && length() > WAV_HEADER_BYTES
 
-    private fun TtsCacheKey.cacheId(): String {
+    private fun TtsCacheKey.cacheId(generator: NarrationTtsEngine): String {
         val textHash = text.sha256()
         return listOf(
             bookId,
             chapterId,
             textHash,
             voice.name,
-            SherpaPiperEngine.MODEL_VERSION,
-            SherpaPiperEngine.SYNTHESIS_CONFIG_VERSION,
+            generator.modelVersion,
+            generator.synthesisConfigVersion,
         ).joinToString(separator = "\u0000").sha256()
     }
 

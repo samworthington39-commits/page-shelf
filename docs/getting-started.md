@@ -101,16 +101,30 @@ curl http://localhost:8000/health
 ```
 
 Compose 项目名和容器名均为 `page-shelf`。浏览器打开
-`http://<服务器IP>:8000/admin`（部署服务器本机可使用 `http://localhost:8000/admin`）：
+`http://<服务器IP>:8000/admin#books`（部署服务器本机可使用 `http://localhost:8000/admin#books`）：
 
 1. 首次使用默认密码 `112233` 登录；
 2. 按提示设置至少 8 位的新管理密码，该步骤不能跳过；
 3. 登记 `/library`；
 4. 创建书架并选择目录；
 5. 扫描书籍；
-6. 按需修改 TXT/EPUB 的章节拆分策略、标题、作者和封面。
+6. 按需修改 TXT/EPUB/MOBI 的章节拆分策略、标题、作者和封面。
 
-支持 `.txt`、`.epub` 和 `.pdf`，扩展名不区分大小写。PDF 始终保持固定版式，不进行章节拆分或 OCR。
+支持 `.txt`、`.epub`、`.mobi` 和 `.pdf`，扩展名不区分大小写。PDF 始终保持固定版式，不进行章节拆分
+或 OCR。MOBI 支持未加密的可重排电子书：后端会在受限临时目录中解包，提取可用的目录、元数据与封面，
+然后清理临时内容。受 DRM 保护的 MOBI 不会被绕过或导入，Print Replica 固定版式请先合法转换为 PDF。
+单个 MOBI 文件上限为 256 MiB。
+
+完成首次改密并扫描书籍后，可在浏览器打开网页阅读器：
+
+```text
+http://<服务器IP>:8000/reader
+```
+
+输入修改后的访问密码即可进入书架。书架标签横向排列并通过点击切换，右上角的“管理”按钮可返回管理
+后台；阅读页只使用上下滚动，顶栏提供上一章、目录、下一章按钮，目录从右侧展开。TXT/EPUB/MOBI 滑到章末
+会自动续接下一章。纸白、护眼、夜间配色以及宋体、楷体、黑体和字号设置会保存在当前浏览器中；访问
+密码不持久化，短期会话只保存在当前标签页的会话存储中。
 
 ## 5. 挂载 NAS 或其他目录
 
@@ -253,5 +267,6 @@ docker compose up -d
 
 ### Android 构建时模型文件异常
 
-运行 `git lfs install` 和 `git lfs pull`。如果 `model.onnx` 只有几行且包含
-`version https://git-lfs.github.com/spec/v1`，当前拿到的是 LFS 指针，不是模型内容。
+运行 `git lfs install` 和 `git lfs pull`。如果 `model-steps-3.onnx` 或
+`vocos-16khz-univ.onnx` 只有几行且包含 `version https://git-lfs.github.com/spec/v1`，
+当前拿到的是 LFS 指针，不是模型内容。

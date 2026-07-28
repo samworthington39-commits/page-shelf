@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "page-shelf-api"
-version = "0.1.0"
-description = "Page-oriented PDF bookshelf backend"
+version = "1.1.0"
+description = "Self-hosted TXT, EPUB, MOBI and PDF library with browser and Android readers"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.134,<0.135",
@@ -15,6 +15,7 @@ dependencies = [
   "pypdf>=6.13.3,<7",
   "pymupdf>=1.26,<2",
   "defusedxml>=0.7.1,<1",
+  "mobi==0.4.1",
 ]
 
 [project.optional-dependencies]

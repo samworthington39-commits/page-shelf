@@ -32,6 +32,7 @@ class EpubBook:
     author: str | None
     chapters: list[EpubChapter]
     has_title_metadata: bool = False
+    has_navigation: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -276,4 +277,5 @@ def inspect_epub(path: Path) -> EpubBook:
             author=author,
             chapters=chapters,
             has_title_metadata=has_title_metadata,
+            has_navigation=bool(navigation_titles),
         )

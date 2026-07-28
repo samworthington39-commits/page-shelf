@@ -9,11 +9,12 @@
 
 ```powershell
 git status --short
-git check-attr -a -- android/app/src/main/assets/g2pw/model.onnx
+git check-attr -a -- android/app/src/main/assets/tts/matcha_zh_en/model-steps-3.onnx
+git check-attr -a -- android/app/src/main/assets/tts/matcha_zh_en/vocos-16khz-univ.onnx
 git lfs install
 ```
 
-`model.onnx` 应显示 `filter: lfs`。确认待提交内容中没有 `.env`、`data/`、`library/`、数据库、书籍、
+两个 ONNX 文件都应显示 `filter: lfs`。确认待提交内容中没有 `.env`、`data/`、`library/`、数据库、书籍、
 APK、签名密钥、`local.properties`、私人路径或真实服务器地址。
 
 运行验证：
@@ -41,7 +42,7 @@ git commit -m "Initial open-source release"
 git branch -M main
 ```
 
-`git lfs ls-files` 应包含 `android/app/src/main/assets/g2pw/model.onnx`。提交前再次检查 `git status`
+`git lfs ls-files` 应包含两个 Matcha ONNX 文件。提交前再次检查 `git status`
 列出的文件；不要使用 `git add -f` 强行加入被忽略的本地数据。
 
 ## 3. 创建并推送仓库
@@ -60,7 +61,7 @@ gh repo create YOUR_REPO --public --source . --remote origin --push
 ```
 
 大模型上传依赖 Git LFS。若推送提示 LFS 配额不足，需要为账户增加 LFS 配额，或把模型改为由
-GitHub Release/外部模型仓库按固定校验值下载；不能把 159 MB 模型改为普通 Git 文件上传。
+GitHub Release/外部模型仓库按固定校验值下载；不要把模型改为普通 Git 文件上传。
 
 ## 4. GitHub 仓库设置
 
@@ -82,10 +83,13 @@ git clone https://github.com/YOUR_NAME/YOUR_REPO.git
 Set-Location YOUR_REPO
 git lfs pull
 git lfs ls-files
-Get-Item android/app/src/main/assets/g2pw/model.onnx | Select-Object Length
+Get-Item android/app/src/main/assets/tts/matcha_zh_en/model-steps-3.onnx | Select-Object Length
+Get-Item android/app/src/main/assets/tts/matcha_zh_en/vocos-16khz-univ.onnx | Select-Object Length
 ```
 
-模型长度应为 `159287333` 字节。只部署后端的用户可跳过大模型下载：
+两个 ONNX 文件的 SHA-256 应分别为
+`524286bf6cf11be74329ae1c682ac69e34d6860c2ea9fd1290319d561540b16a` 和
+`b599142a1fb8ff03de3e84ac35ff537c619e56f4267a6fe894851a42844acf9e`。只部署后端的用户可跳过模型下载：
 
 ```powershell
 $env:GIT_LFS_SKIP_SMUDGE = "1"

@@ -240,7 +240,7 @@ def _remember_automatic_metadata(book: Book) -> dict:
     if "automatic_title" not in metadata:
         internal_title = (
             book.title
-            if book.format in {"epub", "pdf"} and book.title != source.stem
+            if book.format in {"epub", "mobi", "pdf"} and book.title != source.stem
             else None
         )
         metadata["automatic_title"] = automatic_book_title(source, internal_title)

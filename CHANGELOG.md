@@ -3,7 +3,24 @@
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 的基本格式。正式发布后在这里
 记录用户可见变化；尚未发布的修改放在 `Unreleased`。
 
-## Unreleased
+## 1.1.0 - 2026-07-28
+
+### Added
+
+- 新增未加密、可重排 MOBI 的服务端导入，支持 MOBI7/KF8 章节、目录、书名、作者和内嵌封面，并接入
+  网页阅读、Android 离线下载与进度同步；DRM 和 Print Replica 文件会明确拒绝。
+- 新增 `/reader` 网页阅读器，支持书架切换与搜索、受保护书架解锁、TXT/EPUB/MOBI 连续纵向阅读和自动续章、
+  PDF 原版页面与目录导航、阅读进度同步以及本地阅读偏好。
+
+### Changed
+
+- Android 离线朗读改用 sherpa-onnx、`matcha-icefall-zh-en` 与 Vocos，支持中英文混合文本，全程端侧
+  合成且无需额外服务。
+- 移除 Piper 双音色、g2pW 模型及其词典生成链路；Matcha 当前只提供一个女声音色。
+
+### Fixed
+
+- Android 在远端不可用或会话过期时，只要存在文件完整的永久下载，仍可启动并进入离线书架。
 
 ## 1.0.9 - 2026-07-25
 

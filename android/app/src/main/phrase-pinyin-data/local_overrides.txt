@@ -1,9 +1,0 @@
-# Local dictionary corrections and additions for common novel usage.
-# Longer historical terms such as 士大夫 still win through longest matching.
-都是: dōu shì
-差: chà
-最差: zuì chà
-很差: hěn chà
-太差: tài chà
-真差: zhēn chà
-大夫: dài fu

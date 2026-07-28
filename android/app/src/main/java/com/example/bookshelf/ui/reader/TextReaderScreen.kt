@@ -158,14 +158,7 @@ fun TextReaderScreen(viewModel: TextReaderViewModel, onBack: () -> Unit, onOpenN
 
     Box(
         Modifier.fillMaxSize()
-            .background(palette.background)
-            .pointerInput(state.preferences.viewMode, state.chapter?.id, readerBusy) {
-                if (!readerBusy && state.preferences.viewMode == ReaderViewMode.SCROLL) {
-                    detectTapGestures { point ->
-                        if (point.x in size.width * 0.25f..size.width * 0.75f) controlsVisible = !controlsVisible
-                    }
-                }
-            },
+            .background(palette.background),
     ) {
         when {
             state.loading || (state.chapterLoading && state.chapter == null) -> ReaderLoadingScreen(
@@ -199,6 +192,7 @@ fun TextReaderScreen(viewModel: TextReaderViewModel, onBack: () -> Unit, onOpenN
                         preferences = state.preferences,
                         colors = palette,
                         narrationHighlight = narrationHighlight,
+                        onToggleControls = { controlsVisible = !controlsVisible },
                         onPositionChanged = viewModel::onPositionChanged,
                         onVisiblePositionChanged = { chapterIndex, charOffset ->
                             visiblePosition = VisibleTextPosition(chapterIndex, charOffset)

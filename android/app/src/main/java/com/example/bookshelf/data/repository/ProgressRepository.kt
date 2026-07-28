@@ -94,7 +94,7 @@ class ProgressRepository(
     }
 
     suspend fun saveText(progress: ReadingProgress) {
-        require(progress.bookFormat in setOf("txt", "epub"))
+        require(progress.bookFormat in setOf("txt", "epub", "mobi"))
         save(progress.copy(updatedAtEpochMs = System.currentTimeMillis(), deviceId = deviceId))
     }
 

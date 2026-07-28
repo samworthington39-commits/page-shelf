@@ -1,6 +1,6 @@
 # 页架 Page Shelf - Docker 部署 / Docker Deployment
 
-本部署包只包含后端部署配置，不包含任何图书资源。请把自己拥有或有权使用的 TXT、EPUB、PDF 文件放入
+本部署包只包含后端部署配置，不包含任何图书资源。请把自己拥有或有权使用的 TXT、EPUB、MOBI、PDF 文件放入
 `library/`，或修改 `.env` 中的 `PAGE_SHELF_LIBRARY_DIR` 指向 NAS 图书目录。
 
 This package contains backend deployment configuration only. It does not contain any books. Point
@@ -26,15 +26,26 @@ docker pull ghcr.io/samworthington39-commits/page-shelf:latest
 
 ## 首次登录 / First Login
 
-- 管理界面 / Admin UI: `http://<服务器IP>:8000/admin`
+| 界面 / UI | URL | 用途 / Purpose |
+| --- | --- | --- |
+| 管理后台 / Admin UI | `http://<服务器IP>:8000/admin#books` | 改密、书架和系统管理 / Password, shelves and system management |
+| 网页书架与阅读器 / Web reader | `http://<服务器IP>:8000/reader` | 浏览与阅读 / Browse and read books |
+| Swagger 文档 / Swagger docs | `http://<服务器IP>:8000/docs` | 仅在 `ENABLE_API_DOCS=true` 时开放 / Only when enabled |
+| ReDoc 文档 / ReDoc docs | `http://<服务器IP>:8000/redoc` | 仅在 `ENABLE_API_DOCS=true` 时开放 / Only when enabled |
+
+其他地址 / Other addresses:
+
 - Android 服务器地址 / App server URL: `http://<服务器IP>:8000`
+- 健康检查接口 / Health endpoint: `http://<服务器IP>:8000/health`
 - 默认密码 / Default password: `112233`
-- 健康检查 / Health check: `http://<服务器IP>:8000/health`
 
 首次登录必须立即把默认密码修改为至少 8 位的新密码。App 地址不要带 `/admin` 或 `/api/v1`。
 
 The default password must be changed immediately on first login. Do not append `/admin` or `/api/v1` to the
 server URL used by the Android app.
+
+MOBI support is limited to unencrypted, reflowable `.mobi` files. DRM-protected files are not bypassed or imported,
+and Print Replica MOBI files should be converted to PDF using a lawful workflow.
 
 ## 更新 / Update
 

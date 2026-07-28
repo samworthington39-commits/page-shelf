@@ -110,7 +110,7 @@ class BookDownloadWorker(
             }
             Files.move(partial.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
 
-            if (format in setOf("txt", "epub")) {
+            if (format in setOf("txt", "epub", "mobi")) {
                 val chapterDao = container.database.chapterCacheDao()
                 val toc = container.api.toc(bookId).items
                 toc.forEach { summary ->

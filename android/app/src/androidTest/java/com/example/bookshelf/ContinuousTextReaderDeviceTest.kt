@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeUp
 import com.example.bookshelf.domain.ReaderPreferences
 import com.example.bookshelf.domain.TextChapter
 import com.example.bookshelf.ui.reader.ContinuousPagedChapters
@@ -21,6 +22,7 @@ import com.example.bookshelf.ui.reader.ReaderPalette
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertEquals
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 class ContinuousTextReaderDeviceTest {
@@ -147,6 +149,7 @@ class ContinuousTextReaderDeviceTest {
                     preferences = ReaderPreferences(),
                     colors = palette,
                     narrationHighlight = null,
+                    onToggleControls = {},
                     onPositionChanged = { _, _ -> },
                     onVisiblePositionChanged = { _, _ -> },
                     onEnsureChapter = {},
@@ -156,6 +159,60 @@ class ContinuousTextReaderDeviceTest {
 
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("第二章"))
         composeRule.onNodeWithText("第二章").assertIsDisplayed()
+    }
+
+    @Test
+    fun scrollingReaderUsesVerticalTapZonesForPagingAndControls() {
+        val longBody = List(160) { "连续阅读第 ${it + 1} 行，用于验证点按翻页。" }.joinToString("\n")
+        val position = AtomicReference(0 to 0)
+        val controlToggles = AtomicInteger(0)
+        composeRule.setContent {
+            MaterialTheme {
+                ContinuousScrollingChapters(
+                    chapters = chapters(firstBody = longBody),
+                    currentChapterIndex = 0,
+                    currentOffset = 0,
+                    positionRevision = 0,
+                    chapterCount = 2,
+                    preferences = ReaderPreferences(),
+                    colors = palette,
+                    narrationHighlight = null,
+                    onToggleControls = { controlToggles.incrementAndGet() },
+                    onPositionChanged = { chapterIndex, offset ->
+                        position.set(chapterIndex to offset)
+                    },
+                    onVisiblePositionChanged = { _, _ -> },
+                    onEnsureChapter = {},
+                )
+            }
+        }
+
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("第一章", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        val scrollingFeed = composeRule.onNode(hasScrollAction())
+        val feedBounds = scrollingFeed.fetchSemanticsNode().boundsInRoot
+        scrollingFeed.performTouchInput {
+            click(Offset(feedBounds.width / 2f, feedBounds.height / 2f))
+        }
+        composeRule.waitUntil(5_000) { controlToggles.get() == 1 }
+
+        val startOffset = position.get().second
+        scrollingFeed.performTouchInput {
+            click(Offset(feedBounds.width / 2f, feedBounds.height - 10f))
+        }
+        composeRule.waitUntil(5_000) { position.get().second > startOffset }
+        val lowerOffset = position.get().second
+
+        scrollingFeed.performTouchInput {
+            click(Offset(feedBounds.width / 2f, 10f))
+        }
+        composeRule.waitUntil(5_000) { position.get().second < lowerOffset }
+
+        val beforeSwipeOffset = position.get().second
+        scrollingFeed.performTouchInput { swipeUp() }
+        composeRule.waitUntil(5_000) { position.get().second > beforeSwipeOffset }
+        assertEquals(1, controlToggles.get())
     }
 
     private fun chapters(firstBody: String = "第一章正文") = mapOf(

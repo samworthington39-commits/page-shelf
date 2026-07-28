@@ -55,7 +55,7 @@ function splitModeLabel(mode, format) {
   if (format === "pdf") return "按页阅读";
   return ({
     auto: "智能识别",
-    source: "EPUB 原始目录",
+    source: "EPUB/MOBI 原始目录",
     strict: "严格章节标题",
     expanded: "扩展标题识别",
     fixed: "固定字数",
@@ -90,6 +90,7 @@ function coverSourceLabel(source, status) {
     custom: "自定义封面",
     uploaded: "自定义封面",
     epub: "EPUB 内置封面",
+    mobi: "MOBI 内置封面",
     pdf: "PDF 首页封面",
     embedded: "书籍内置封面",
     automatic: "自动封面",
@@ -239,7 +240,7 @@ function renderBooks() {
     return;
   }
   if (!books.length) {
-    target.innerHTML = `<div class="empty-state"><strong>${query ? "没有匹配的书籍" : "这个书架还是空的"}</strong><span>${query ? "换一个关键词试试。" : "立即扫描书架以发现 TXT、EPUB 和 PDF 文件。"}</span></div>`;
+    target.innerHTML = `<div class="empty-state"><strong>${query ? "没有匹配的书籍" : "这个书架还是空的"}</strong><span>${query ? "换一个关键词试试。" : "立即扫描书架以发现 TXT、EPUB、MOBI 和 PDF 文件。"}</span></div>`;
     return;
   }
   target.innerHTML = books.map((book) => {
@@ -819,7 +820,7 @@ $("#book-list").addEventListener("click", (event) => {
   $("#split-dialog-title").textContent = book.title;
   $("#split-book-meta").textContent = `${book.format.toUpperCase()} · ${book.chapter_count || 0} 章 · ${bookFilename(book)}`;
   $("#split-error").textContent = "";
-  document.querySelectorAll(".epub-only").forEach((element) => { element.hidden = book.format !== "epub"; });
+  document.querySelectorAll(".epub-only").forEach((element) => { element.hidden = !["epub", "mobi"].includes(book.format); });
   const selectedMode = book.chapter_split_mode === "none" ? "auto" : book.chapter_split_mode;
   const radio = document.querySelector(`input[name="split-mode"][value="${selectedMode}"]`)
     || document.querySelector('input[name="split-mode"][value="auto"]');

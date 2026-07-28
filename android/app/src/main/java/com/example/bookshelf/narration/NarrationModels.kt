@@ -1,8 +1,7 @@
 package com.example.bookshelf.narration
 
-enum class NarrationVoice(val displayName: String, internal val modelAsset: String) {
-    FEMALE("小雅 · 女声", "tts/piper_zh/voices/xiao_ya.onnx"),
-    MALE("超文 · 男声", "tts/piper_zh/voices/chaowen.onnx"),
+enum class NarrationVoice(val displayName: String) {
+    FEMALE("Matcha · 温柔女声"),
 }
 
 enum class NarrationStatus {
