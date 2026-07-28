@@ -22,7 +22,7 @@ dependencies = [
 test = [
   "httpx>=0.28,<0.29",
   "pytest>=9.0.3,<10",
-  "pytest-cov>=6.2,<7",
+  "pytest-cov>=6.2,<8",
 ]
 
 [tool.hatch.build.targets.wheel]
