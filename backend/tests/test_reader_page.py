@@ -12,7 +12,7 @@ def test_reader_page_and_assets_are_served_with_security_headers(client):
     assert 'id="login-form"' in page.text
     assert 'id="shelf-tabs"' in page.text
     assert 'id="admin-link"' in page.text
-    assert 'href="/admin"' in page.text
+    assert 'href="/admin#books"' in page.text
     assert 'id="reader-toolbar"' in page.text
     assert 'id="chapter-nav-bottom"' not in page.text
     assert 'id="toc-drawer"' in page.text

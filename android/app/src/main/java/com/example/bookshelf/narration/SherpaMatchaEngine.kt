@@ -38,7 +38,7 @@ internal class SherpaMatchaEngine(
     override val synthesisSpeed: Float = SYNTHESIS_SPEED
 
     init {
-        require(voice == NarrationVoice.FEMALE) { "Matcha 测试模型只包含一个女声音色" }
+        require(voice == NarrationVoice.FEMALE) { "内置 Matcha 模型只包含一个女声音色" }
         val dataDirStartedAt = System.nanoTime()
         val dataDir = materializeEspeakData(context)
         val modelStartedAt = System.nanoTime()

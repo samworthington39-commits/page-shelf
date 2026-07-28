@@ -101,7 +101,7 @@ curl http://localhost:8000/health
 ```
 
 Compose 项目名和容器名均为 `page-shelf`。浏览器打开
-`http://<服务器IP>:8000/admin`（部署服务器本机可使用 `http://localhost:8000/admin`）：
+`http://<服务器IP>:8000/admin#books`（部署服务器本机可使用 `http://localhost:8000/admin#books`）：
 
 1. 首次使用默认密码 `112233` 登录；
 2. 按提示设置至少 8 位的新管理密码，该步骤不能跳过；

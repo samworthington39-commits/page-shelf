@@ -1,6 +1,10 @@
 ARG PYTHON_IMAGE=python:3.12-slim
 FROM ${PYTHON_IMAGE}
 
+LABEL org.opencontainers.image.title="Page Shelf" \
+      org.opencontainers.image.description="Self-hosted TXT, EPUB, MOBI and PDF library with browser and Android readers" \
+      org.opencontainers.image.source="https://github.com/samworthington39-commits/page-shelf"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 

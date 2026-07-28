@@ -14,8 +14,8 @@ android {
         applicationId = "com.example.bookshelf"
         minSdk = 26
         targetSdk = 36
-        versionCode = 15
-        versionName = "1.0.9"
+        versionCode = 16
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
         manifestPlaceholders["appLabel"] = "页架"
@@ -44,11 +44,6 @@ android {
     }
 
     buildTypes {
-        getByName("debug") {
-            applicationIdSuffix = ".matcha"
-            versionNameSuffix = "-matcha-test"
-            manifestPlaceholders["appLabel"] = "页架 Matcha 测试"
-        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

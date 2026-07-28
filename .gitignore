@@ -1,6 +1,5 @@
 .env
 .venv/
-.venv-tts/
 .playwright-cli/
 __pycache__/
 *.py[cod]

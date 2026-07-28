@@ -28,7 +28,7 @@ docker pull ghcr.io/samworthington39-commits/page-shelf:latest
 
 | 界面 / UI | URL | 用途 / Purpose |
 | --- | --- | --- |
-| 管理后台 / Admin UI | `http://<服务器IP>:8000/admin` | 改密、书架和系统管理 / Password, shelves and system management |
+| 管理后台 / Admin UI | `http://<服务器IP>:8000/admin#books` | 改密、书架和系统管理 / Password, shelves and system management |
 | 网页书架与阅读器 / Web reader | `http://<服务器IP>:8000/reader` | 浏览与阅读 / Browse and read books |
 | Swagger 文档 / Swagger docs | `http://<服务器IP>:8000/docs` | 仅在 `ENABLE_API_DOCS=true` 时开放 / Only when enabled |
 | ReDoc 文档 / ReDoc docs | `http://<服务器IP>:8000/redoc` | 仅在 `ENABLE_API_DOCS=true` 时开放 / Only when enabled |

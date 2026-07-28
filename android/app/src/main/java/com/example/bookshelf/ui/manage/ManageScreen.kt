@@ -2,6 +2,7 @@
 
 package com.example.bookshelf.ui.manage
 
+import com.example.bookshelf.BuildConfig
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -155,7 +156,7 @@ fun ManageScreen(viewModel: ManageViewModel, onBack: () -> Unit, onServerSetting
 
             item { SectionTitle("服务器", "修改 IP、端口或管理密码") }
             item { TextButton(onClick = onServerSettings) { Text("服务器设置") } }
-            item { SectionTitle("关于", "页架 1.0.4 · 专注在线与离线阅读") }
+            item { SectionTitle("关于", "页架 ${BuildConfig.VERSION_NAME} · 专注在线与离线阅读") }
             item {
                 Text(
                     "TXT、EPUB 与 MOBI 仅保留当前章前后各 5 章；PDF 使用原始文件按页渲染。",

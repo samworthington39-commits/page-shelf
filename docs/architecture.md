@@ -21,10 +21,6 @@ android/app/src/main/java/com/example/bookshelf/
   narration/                   Matcha 端侧合成、分句、缓存与播放队列
   ui/manage/                   App 本地下载、缓存和默认阅读设置
 
-tts/
-  page_shelf_tts/              独立 Qwen3-TTS HTTP API 与运行时
-  tests/                       不下载模型的 API、配置和运行时单元测试
-  compose.yaml                 Intel 核显/OpenVINO 实验部署
 ```
 
 ## 认证
@@ -86,13 +82,3 @@ WorkManager 在联网后执行同步；失败采用上限 6 小时的指数退�
 后端从 Docker 授权挂载或 `STORAGE_ALLOWED_ROOTS` 得到可用范围，网页管理后台只能在范围内登记
 书架。移动端没有目录扫描、上传、文件管理或用户管理入口。移除后端书架登记或删除手机本地下载
 都不会删除 NAS 原始文件。
-
-## 独立 Qwen TTS 边界
-
-`tts/` 是第二个、完全独立的 Docker 项目。它不读取页架数据库、书架或图书文件，只接收调用方提交的
-文本并返回完整 WAV。`/health` 和 `/ready` 公开用于容器探针；`/v1/voices` 与
-`/v1/audio/speech` 可使用独立 Bearer Token 保护。模型、OpenVINO IR 和编译缓存保存在自己的 Docker
-卷中。
-
-该服务当前用于低功耗 Intel NAS 的性能验证，网页阅读器和 Android App 都没有调用它。客户端的正式
-朗读边界仍是 Android 端侧 Matcha。

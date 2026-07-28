@@ -49,13 +49,6 @@ TXT、EPUB、MOBI、PDF 文件；网页阅读器提供免安装的纵向阅读�
 - 阅读进度：本地优先保存，联网后自动重试同步，并在跨设备或内容变化时提示冲突处理。
 - 中英朗读：sherpa-onnx + Matcha-TTS，内置单一女声，全程端侧生成，正文不上传第三方服务。
 
-### 实验性独立 TTS 服务
-
-`tts/` 提供单独部署的 Qwen3-TTS Docker 服务，面向 Intel 核显 NAS 测试 OpenVINO GPU 推理，并在
-GPU 不可用时按配置回退到 CPU。它提供完整 WAV 接口、可选 Bearer Token、设备状态和 RTF 指标，
-目前尚未接入网页阅读器或 Android App，也不会替换 App 内置的 Matcha 离线朗读。部署和基准方法见
-[Qwen TTS 服务说明](tts/README.md)。
-
 ## Docker 快速部署 / Quick Deploy
 
 需要 Docker Engine 24+ 和 Docker Compose v2。公开镜像同时提供 `linux/amd64` 与 `linux/arm64`，
@@ -80,17 +73,17 @@ docker compose up -d
 
 也可以从 [Releases](https://github.com/samworthington39-commits/page-shelf/releases) 下载
 `page-shelf-<版本>-docker.zip`，解压后执行 `docker compose up -d`。固定版本部署可在 `.env` 中设置
-`PAGE_SHELF_VERSION=v1.0.9`，或直接拉取：
+`PAGE_SHELF_VERSION=v1.1.0`，或直接拉取：
 
 ```bash
-docker pull ghcr.io/samworthington39-commits/page-shelf:v1.0.9
+docker pull ghcr.io/samworthington39-commits/page-shelf:v1.1.0
 ```
 
 部署完成后，各网页界面的完整 URL 如下：
 
 | 界面 | URL | 用途 |
 | --- | --- | --- |
-| 管理后台 | `http://<服务器IP>:8000/admin` | 首次改密、存储位置、书架、扫描、元数据、封面和系统维护 |
+| 管理后台 | `http://<服务器IP>:8000/admin#books` | 首次改密、存储位置、书架、扫描、元数据、封面和系统维护 |
 | 网页书架与阅读器 | `http://<服务器IP>:8000/reader` | 浏览书架，阅读 TXT、EPUB、MOBI 和 PDF，同步阅读进度 |
 | Swagger API 文档（可选） | `http://<服务器IP>:8000/docs` | 仅在设置 `ENABLE_API_DOCS=true` 后开放 |
 | ReDoc API 文档（可选） | `http://<服务器IP>:8000/redoc` | 仅在设置 `ENABLE_API_DOCS=true` 后开放 |
@@ -113,7 +106,7 @@ docker pull ghcr.io/samworthington39-commits/page-shelf:v1.0.9
 1. 使用默认密码 `112233` 登录并设置至少 8 位的新密码；
 2. 登记容器内路径 `/library`；
 3. 创建书架并扫描自己已有的本地图书文件；
-4. 浏览器打开 `/reader`，或在 Android App 中填写服务器地址和修改后的管理密码。
+4. 浏览器打开 `http://<服务器IP>:8000/reader`，或在 Android App 中填写服务器地址和修改后的管理密码。
 
 在部署服务器本机访问时，可将 `<服务器IP>` 换成 `localhost`。会话密钥会在首次启动时自动随机生成并
 保存在 `data/admin_credentials.json`。如需预先指定初始密码，可修改 `.env` 中的
@@ -251,7 +244,6 @@ Set-Location android
 ```text
 backend/                 FastAPI API、管理后台、网页阅读器和测试
 android/                 Kotlin/Jetpack Compose Android App 与端侧 Matcha 朗读
-tts/                     独立的实验性 Qwen3-TTS Docker 服务
 docs/                    部署、架构、安全、PDF 和许可证文档
 compose.yaml             默认后端与网页部署
 THIRD_PARTY_NOTICES.md   主项目第三方软件、模型和数据声明

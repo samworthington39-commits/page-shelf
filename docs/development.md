@@ -12,10 +12,6 @@ backend/app/
 android/app/src/main/
   java/          Kotlin 业务、数据层、Compose UI 与后台任务
   assets/tts/matcha_zh_en/  Matcha、Vocos、eSpeak 与文本规范化资源
-
-tts/
-  page_shelf_tts/  独立 Qwen3-TTS API、PyTorch/OpenVINO 运行时与基准工具
-  tests/           不需要下载模型或连接 GPU 的单元测试
 ```
 
 详细的数据边界见 [architecture.md](architecture.md)。
@@ -80,20 +76,6 @@ Set-Location P:\android
 .\gradlew.bat testDebugUnitTest
 ```
 
-## 独立 TTS 服务开发
-
-普通单元测试不下载 Qwen 模型，也不要求 Intel GPU：
-
-```powershell
-python -m venv .venv-tts
-.\.venv-tts\Scripts\python -m pip install -e ".\tts[test]"
-Set-Location tts
-..\.venv-tts\Scripts\python -m pytest -q
-```
-
-Linux/macOS 将 Python 路径替换为 `.venv-tts/bin/python`。真实 OpenVINO 转换、GPU 编译和 RTF 基准必须
-使用 `tts/compose.yaml` 在目标 NAS 上验证，具体步骤见 [TTS 服务说明](../tts/README.md)。
-
 ## 模型与生成资产
 
 `model-steps-3.onnx` 与 `vocos-16khz-univ.onnx` 使用 Git LFS。Matcha ONNX、词典、FST、eSpeak 数据
@@ -113,7 +95,6 @@ Matcha 的 eSpeak 数据必须先从 APK asset 复制到 App 私有目录，sher
 GitHub Actions 对每次 Pull Request 和向 `main`/`master` 的推送执行：
 
 - Python 3.11/3.12 后端测试；
-- Python 3.10/3.12 独立 TTS 单元测试；
 - Android JVM 单元测试；
 - Android release lint。
 

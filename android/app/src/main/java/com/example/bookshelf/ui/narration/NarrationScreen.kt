@@ -202,7 +202,7 @@ fun NarrationScreen(
                     modifier = Modifier.padding(top = 22.dp),
                 )
                 Text(
-                    "引擎与两款中文音色均在本机运行，朗读时不上传正文。",
+                    "朗读引擎与内置女声均在本机运行，朗读时不上传正文。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 12.dp),

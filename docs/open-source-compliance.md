@@ -20,9 +20,8 @@
    `AGPL-3.0-only OR Artifex-Commercial-License` 双授权。未购买商业许可时，分发包含该依赖的
    后端，或通过网络提供修改后的版本，需要满足 AGPL 的对应源码提供等义务。项目采用 AGPL 与其
    保持一致。
-2. 原始 `rhasspy/piper-voices` 模型集合在仓库级元数据中声明 MIT，小雅与超文权重据此按 MIT
-   记录。模型卡中的 CC0/非商业条款描述的是训练数据集，不替代权重的仓库级 MIT；仍应完整保留
-   模型卡。小雅的 BZNSYP/Data Baker 数据来源限制为非商业，商业化前必须重新核查。
+2. Android 端侧朗读使用 Matcha 声学模型与 Vocos。上游元数据分别标注 Apache-2.0 与 MIT，但
+   Matcha 的训练数据来源信息不完整；商业发布前必须重新核查数据来源与使用条款。
 3. `python:3.12-slim` 是可变标签，Python 依赖也只有版本范围、没有锁文件。不同构建日期产生的
    Debian 包和 Python 传递依赖可能不同，因而无法为未来镜像给出固定的逐包清单。
 
