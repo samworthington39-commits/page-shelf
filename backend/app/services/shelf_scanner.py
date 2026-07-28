@@ -106,8 +106,8 @@ def resplit_book(
         raise ValueError("只有已归属书架的书籍可以在后台重新拆分")
     if book.format == "pdf":
         raise ValueError("PDF 只按页码阅读，不支持章节拆分")
-    if mode == "source" and book.format != "epub":
-        raise ValueError("原始目录方式只适用于 EPUB")
+    if mode == "source" and book.format not in {"epub", "mobi"}:
+        raise ValueError("原始目录方式只适用于 EPUB 或 MOBI")
     lock = _lock_for(book.shelf.id)
     if not lock.acquire(blocking=False):
         raise ShelfScanBusyError("该书架正在扫描，请稍后再设置章节")

@@ -1139,7 +1139,7 @@ async function saveProgress(silent = false) {
     payload = {
       progression: Number(((state.chapterIndex + ratio) / state.toc.length).toFixed(6)),
       locator_json: {
-        type: state.currentBook.format === "epub" ? "epub" : "text",
+        type: ["epub", "mobi"].includes(state.currentBook.format) ? state.currentBook.format : "text",
         chapter_id: state.currentChapter.id,
         chapter_index: state.chapterIndex,
         chapter_title: state.currentChapter.title,

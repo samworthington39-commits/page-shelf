@@ -1,6 +1,6 @@
 # 页架 Page Shelf - Docker 部署 / Docker Deployment
 
-本部署包只包含后端部署配置，不包含任何图书资源。请把自己拥有或有权使用的 TXT、EPUB、PDF 文件放入
+本部署包只包含后端部署配置，不包含任何图书资源。请把自己拥有或有权使用的 TXT、EPUB、MOBI、PDF 文件放入
 `library/`，或修改 `.env` 中的 `PAGE_SHELF_LIBRARY_DIR` 指向 NAS 图书目录。
 
 This package contains backend deployment configuration only. It does not contain any books. Point
@@ -43,6 +43,9 @@ docker pull ghcr.io/samworthington39-commits/page-shelf:latest
 
 The default password must be changed immediately on first login. Do not append `/admin` or `/api/v1` to the
 server URL used by the Android app.
+
+MOBI support is limited to unencrypted, reflowable `.mobi` files. DRM-protected files are not bypassed or imported,
+and Print Replica MOBI files should be converted to PDF using a lawful workflow.
 
 ## 更新 / Update
 

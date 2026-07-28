@@ -158,7 +158,7 @@ fun ManageScreen(viewModel: ManageViewModel, onBack: () -> Unit, onServerSetting
             item { SectionTitle("关于", "页架 1.0.4 · 专注在线与离线阅读") }
             item {
                 Text(
-                    "TXT 与 EPUB 仅保留当前章前后各 5 章；PDF 使用原始文件按页渲染。",
+                    "TXT、EPUB 与 MOBI 仅保留当前章前后各 5 章；PDF 使用原始文件按页渲染。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

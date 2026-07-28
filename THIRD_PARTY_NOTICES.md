@@ -17,9 +17,13 @@
 - pypdf: BSD-3-Clause
 - PyMuPDF/MuPDF: AGPL-3.0-only OR Artifex Commercial License
 - defusedxml: PSF-2.0
+- mobi 0.4.1 / KindleUnpack: GPL-3.0-only
+- Loguru: MIT
+- standard-imghdr: PSF-2.0
 
-PyMuPDF is a strong-copyleft dependency. This repository uses AGPL-3.0-only for
-its original code and provides the corresponding source and build files.
+PyMuPDF and mobi/KindleUnpack are strong-copyleft dependencies. This repository
+uses AGPL-3.0-only for its original code and provides the corresponding source
+and build files.
 
 ### Android runtime
 

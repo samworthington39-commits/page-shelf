@@ -3,7 +3,7 @@
 > **NAS 图书管理器 / NAS Library Manager**
 
 页架是一款自托管的本地图书文件管理与阅读工具。后端负责扫描、整理和传输 NAS 或服务器中已有的
-TXT、EPUB、PDF 文件；网页阅读器提供免安装的纵向阅读，Android App 提供离线下载、阅读进度同步与
+TXT、EPUB、MOBI、PDF 文件；网页阅读器提供免安装的纵向阅读，Android App 提供离线下载、阅读进度同步与
 完全离线的中文朗读。
 
 > [!IMPORTANT]
@@ -32,17 +32,18 @@ TXT、EPUB、PDF 文件；网页阅读器提供免安装的纵向阅读，Androi
 - 管理后台：登记授权存储位置，创建公开、隐藏或 PIN 保护书架，手动或定时扫描书籍；支持修改书名、
   作者、封面和单书章节拆分策略。
 - 网页阅读器：访问 `/reader` 即可登录，支持书架切换、书名/作者搜索、受保护书架解锁和阅读进度
-  同步。TXT/EPUB 使用纵向滚动并在章末自动续接，PDF 保留原版页面和书签目录；主题、字体和字号保存
+  同步。TXT/EPUB/MOBI 使用纵向滚动并在章末自动续接，PDF 保留原版页面和书签目录；主题、字体和字号保存
   在当前浏览器。
-- 格式处理：TXT 支持多种章节规则与固定长度回退，EPUB 按内部导航和 spine 顺序解析，PDF 保留固定
-  版式、页数和原生书签，不执行 OCR。
+- 格式处理：TXT 支持多种章节规则与固定长度回退，EPUB 按内部导航和 spine 顺序解析；未加密的
+  MOBI 在服务端解包为可重排章节，保留可用的目录、书名、作者和内嵌封面；PDF 保留固定版式、页数和
+  原生书签，不执行 OCR。
 - 文件与安全：原始书籍只读挂载，不因移除书架或客户端缓存而删除；文件下载支持 Range、ETag 和
   断点续传。管理 Cookie 与阅读 Bearer 会话分离，存储路径受授权根目录限制，CORS 和 API 文档默认
   关闭。
 
 ### Android App
 
-- 书架与阅读：横向切换书架、搜索书名或作者、解锁 PIN 书架；TXT/EPUB 支持左右翻页或上下滚动，
+- 书架与阅读：横向切换书架、搜索书名或作者、解锁 PIN 书架；TXT/EPUB/MOBI 支持左右翻页或上下滚动，
   PDF 支持原版按页渲染、缩放、书签导航和有限页缓存。
 - 离线能力：整本下载、断点续传、SHA-256 校验、失败重试、临时缓存清理和完全离线阅读。
 - 阅读进度：本地优先保存，联网后自动重试同步，并在跨设备或内容变化时提示冲突处理。
@@ -90,7 +91,7 @@ docker pull ghcr.io/samworthington39-commits/page-shelf:v1.0.9
 | 界面 | URL | 用途 |
 | --- | --- | --- |
 | 管理后台 | `http://<服务器IP>:8000/admin` | 首次改密、存储位置、书架、扫描、元数据、封面和系统维护 |
-| 网页书架与阅读器 | `http://<服务器IP>:8000/reader` | 浏览书架，阅读 TXT、EPUB 和 PDF，同步阅读进度 |
+| 网页书架与阅读器 | `http://<服务器IP>:8000/reader` | 浏览书架，阅读 TXT、EPUB、MOBI 和 PDF，同步阅读进度 |
 | Swagger API 文档（可选） | `http://<服务器IP>:8000/docs` | 仅在设置 `ENABLE_API_DOCS=true` 后开放 |
 | ReDoc API 文档（可选） | `http://<服务器IP>:8000/redoc` | 仅在设置 `ENABLE_API_DOCS=true` 后开放 |
 
@@ -129,12 +130,15 @@ cp .env.example .env
 mkdir -p library data
 ```
 
-将 TXT、EPUB 或 PDF 文件放入 `library/`，然后启动：
+将 TXT、EPUB、MOBI 或 PDF 文件放入 `library/`，然后启动：
 
 ```bash
 docker compose up -d --build
 docker compose ps
 ```
+
+MOBI 支持范围是未加密、可重排的 `.mobi` 电子书。受 DRM 保护的文件不会被绕过或导入；Print Replica
+固定版式 MOBI 请先合法转换为 PDF。单个 MOBI 最大 256 MiB，解包内容会写入容器临时目录并在导入后清理。
 
 更完整的 Docker、NAS、HTTPS、备份与无 Docker 部署步骤见
 [使用与部署文档](docs/getting-started.md)。

@@ -101,7 +101,7 @@ def save_progress(
     else:
         if payload.progression is None or payload.locator_json is None:
             raise HTTPException(status_code=422, detail="文字阅读进度必须包含 progression 和 locator_json")
-        if payload.locator_json.get("type") not in {"text", "epub"}:
+        if payload.locator_json.get("type") not in {"text", "epub", "mobi"}:
             raise HTTPException(status_code=422, detail="文字阅读定位器类型无效")
         progression = payload.progression
         locator = payload.locator_json

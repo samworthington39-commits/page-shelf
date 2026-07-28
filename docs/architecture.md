@@ -8,7 +8,7 @@ backend/app/
   routers/admin.py             仅管理后台使用的 Cookie 接口
   routers/reader.py            网页阅读器入口与安全响应头
   reader/                      原生 HTML/CSS/JavaScript 网页阅读器
-  services/                    TXT/EPUB/PDF 解析、扫描与文件流
+  services/                    TXT/EPUB/MOBI/PDF 解析、扫描与文件流
 
 android/app/src/main/java/com/example/bookshelf/
   data/remote/                 Retrofit API 和动态服务器适配
@@ -17,7 +17,7 @@ android/app/src/main/java/com/example/bookshelf/
   data/settings/               Keystore 凭证、服务器配置、阅读设置
   worker/                      整书下载和离线进度重试
   ui/library/                  书架、搜索、缓存/错误/空状态
-  ui/reader/                   TXT/EPUB 与 PDF 独立阅读器
+  ui/reader/                   TXT/EPUB/MOBI 与 PDF 独立阅读器
   narration/                   Matcha 端侧合成、分句、缓存与播放队列
   ui/manage/                   App 本地下载、缓存和默认阅读设置
 
@@ -41,7 +41,7 @@ Android 和网页阅读器只在登录请求中提交管理密码。后端验证
 
 网页阅读器由 FastAPI 同源提供，不需要单独构建前端。它复用书架、书籍、目录、文件和进度 API：
 
-- TXT/EPUB 每次只请求当前章节，滚动到底部后自动进入下一章；
+- TXT/EPUB/MOBI 每次只请求当前章节，滚动到底部后自动进入下一章；
 - PDF 先通过受保护的文件接口取得原文件，再交给浏览器内置 PDF 查看能力显示当前页；
 - 每个浏览器生成独立设备 ID，与 Android 一样把进度写入统一进度模型；
 - 主题、字体、字号和最后访问书架保存在 `localStorage`，密码与书架 PIN 不写入持久存储。
@@ -50,7 +50,9 @@ Android 和网页阅读器只在登录请求中提交管理密码。后端验证
 
 ## 章节窗口
 
-TXT/EPUB 的章节划分发生在后端。每本书在 `books` 表中保存独立的 `chapter_split_mode`、配置与拆分
+TXT/EPUB/MOBI 的章节划分发生在后端。MOBI 先在带容量上限的临时目录中串行解包：KF8 内容复用 EPUB
+解析路径，MOBI7 内容按 NCX 锚点或标题规则生成章节；临时内容在单次解析完成后删除。每本书在 `books`
+表中保存独立的 `chapter_split_mode`、配置与拆分
 修订号；后台按书架列出书籍，修改策略后只重新解析目标书。阅读顺序始终使用源文件出现顺序，解析
 出的卷号、章号、子序号与上中下后缀只用于元数据和校验。章节保存原始标题与标准化标题，移动端
 目录默认展示原始标题。策略变化会提升内容版本，使 App 放弃旧章节缓存。PDF 不提供任何拆分设置。
@@ -60,7 +62,7 @@ TXT/EPUB 的章节划分发生在后端。每本书在 `books` 表中保存独�
 按“下一章、上一章、下二章、上二章……”顺序预取；相同请求共享 Deferred，快速切章会取消窗口外
 的失效请求。
 
-在线读到的章节写入 `chapter_cache` 临时缓存。主动整书下载会保存原始 TXT/EPUB，并逐章写入同一
+在线读到的章节写入 `chapter_cache` 临时缓存。主动整书下载会保存原始 TXT/EPUB/MOBI，并逐章写入同一
 表且标记 `isPermanent = true`。清理临时缓存不会删除永久章节或进度。
 
 ## PDF

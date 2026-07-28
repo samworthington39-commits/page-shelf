@@ -31,7 +31,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="Page Shelf API",
     version="1.0.0",
-    description="TXT/EPUB chapters and page-oriented PDF reading without OCR or synthetic chapters.",
+    description="TXT/EPUB/MOBI chapters and page-oriented PDF reading without OCR or synthetic chapters.",
     lifespan=lifespan,
     docs_url="/docs" if get_settings().enable_api_docs else None,
     redoc_url="/redoc" if get_settings().enable_api_docs else None,

@@ -16,6 +16,7 @@ import com.example.bookshelf.domain.Capabilities
 import com.example.bookshelf.domain.PdfNavigationItem
 import com.example.bookshelf.domain.LibraryShelf
 import com.example.bookshelf.data.remote.ShelfUnlockRequest
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 class BookRepository(
@@ -45,8 +46,7 @@ class BookRepository(
             )
         }
     } catch (error: Exception) {
-        val available = downloadDao.permanent().map { it.bookId }.toSet()
-        val cached = dao.all().filter { it.id in available }.map(CachedBookEntity::toDomain)
+        val cached = offlineBooks()
         if (cached.isEmpty()) throw error
         rememberBooks(cached)
         listOf(
@@ -85,11 +85,12 @@ class BookRepository(
             dao.upsertAll(it.map(Book::toEntity))
         }
     } catch (error: Exception) {
-        val available = downloadDao.permanent().map { it.bookId }.toSet()
-        dao.all().filter { it.id in available }.map(CachedBookEntity::toDomain)
+        offlineBooks()
             .ifEmpty { throw error }
             .also(::rememberBooks)
     }
+
+    suspend fun hasOfflineBooks(): Boolean = offlineBooks().isNotEmpty()
 
     suspend fun book(bookId: String): Book {
         memory[bookId]?.let { return it }
@@ -118,6 +119,15 @@ class BookRepository(
 
     private fun rememberBooks(books: List<Book>) {
         books.forEach { book -> memory[book.id] = book }
+    }
+
+    private suspend fun offlineBooks(): List<Book> {
+        val available = downloadDao.permanent()
+            .filter { download -> download.localPath?.let(::File)?.isFile == true }
+            .map { it.bookId }
+            .toSet()
+        if (available.isEmpty()) return emptyList()
+        return dao.all().filter { it.id in available }.map(CachedBookEntity::toDomain)
     }
 }
 

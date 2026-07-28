@@ -124,7 +124,7 @@ class DownloadRepository(
         fun finalFile(context: Context, bookId: String, format: String) =
             File(downloadsDirectory(context), "$bookId.${safeExtension(format)}")
 
-        private fun safeExtension(format: String): String = format.lowercase().takeIf { it in setOf("pdf", "txt", "epub") } ?: "book"
+        private fun safeExtension(format: String): String = format.lowercase().takeIf { it in setOf("pdf", "txt", "epub", "mobi") } ?: "book"
     }
 }
 

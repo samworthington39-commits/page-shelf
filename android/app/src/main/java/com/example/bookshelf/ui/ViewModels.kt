@@ -44,16 +44,26 @@ class StartupViewModel(private val container: AppContainer) : ViewModel() {
     init { connect() }
 
     fun connect() {
-        if (!container.auth.hasSavedCredentials()) {
-            _state.value = StartupState.NeedsLogin()
-            return
-        }
         viewModelScope.launch {
             _state.value = StartupState.Checking
+            if (!container.auth.hasSavedCredentials()) {
+                _state.value = if (container.books.hasOfflineBooks()) {
+                    StartupState.Connected
+                } else {
+                    StartupState.NeedsLogin()
+                }
+                return@launch
+            }
             _state.value = runCatching { container.auth.autoLogin() }
                 .fold(
                     onSuccess = { StartupState.Connected },
-                    onFailure = { StartupState.NeedsLogin(it.safeMessage("自动连接失败")) },
+                    onFailure = { error ->
+                        if (container.books.hasOfflineBooks()) {
+                            StartupState.Connected
+                        } else {
+                            StartupState.NeedsLogin(error.safeMessage("自动连接失败"))
+                        }
+                    },
                 )
         }
     }

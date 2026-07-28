@@ -7,7 +7,9 @@
 
 ### Added
 
-- 新增 `/reader` 网页阅读器，支持书架切换与搜索、受保护书架解锁、TXT/EPUB 连续纵向阅读和自动续章、
+- 新增未加密、可重排 MOBI 的服务端导入，支持 MOBI7/KF8 章节、目录、书名、作者和内嵌封面，并接入
+  网页阅读、Android 离线下载与进度同步；DRM 和 Print Replica 文件会明确拒绝。
+- 新增 `/reader` 网页阅读器，支持书架切换与搜索、受保护书架解锁、TXT/EPUB/MOBI 连续纵向阅读和自动续章、
   PDF 原版页面与目录导航、阅读进度同步以及本地阅读偏好。
 - 新增独立的实验性 Qwen3-TTS Docker 服务，支持 OpenVINO GPU/CPU 回退、完整 WAV 接口、可选
   Bearer Token、就绪状态和 RTF 基准；该服务尚未接入现有客户端。
@@ -17,6 +19,10 @@
 - Android 离线朗读测试分支改用 `matcha-icefall-zh-en` 与 Vocos，支持中英文混合文本。
 - Debug 包使用独立应用 ID 和“页架 Matcha 测试”名称，可与正式版并存。
 - 移除 Piper 双音色、g2pW 模型及其词典生成链路；Matcha 当前只提供一个女声音色。
+
+### Fixed
+
+- Android 在远端不可用或会话过期时，只要存在文件完整的永久下载，仍可启动并进入离线书架。
 
 ## 1.0.9 - 2026-07-25
 

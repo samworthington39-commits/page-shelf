@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 
 from ..models import Book, Chapter
 from .cover_service import automatic_cover
-from .epub_processor import inspect_epub
+from .epub_processor import EpubCover, inspect_epub
+from .mobi_processor import inspect_mobi
 from .pdf_processor import fingerprint_file, inspect_pdf
 from .text_processor import (
     DEFAULT_SEGMENT_SIZE,
@@ -22,7 +23,7 @@ from .text_processor import (
 )
 
 
-SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".epub"}
+SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".epub", ".mobi"}
 _BOOK_TITLE_PATTERN = re.compile(r"《([^《》]+)》")
 
 
@@ -99,10 +100,22 @@ def _apply_automatic_cover(
     cover_directory: Path,
     fingerprint: str,
     automatic_title: str,
+    *,
+    embedded_cover: EpubCover | None = None,
+    embedded_source: str | None = None,
+    embedded_inspected: bool = False,
 ) -> None:
     metadata = dict(book.metadata_overrides_json or {})
     display_title = str(metadata.get("title") or automatic_title)
-    cover = automatic_cover(path, display_title, cover_directory, fingerprint)
+    cover = automatic_cover(
+        path,
+        display_title,
+        cover_directory,
+        fingerprint,
+        embedded_cover=embedded_cover,
+        embedded_source=embedded_source,
+        embedded_inspected=embedded_inspected,
+    )
     book.cover_status = cover.status
     book.cover_path = cover.path
     metadata["automatic_cover_source"] = cover.source
@@ -185,7 +198,11 @@ def _source_modified(path: Path) -> datetime:
 
 
 def _base_values(path: Path, fingerprint: str) -> dict[str, object]:
-    mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    mime_type = (
+        "application/x-mobipocket-ebook"
+        if path.suffix.lower() == ".mobi"
+        else mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    )
     return {
         "format": path.suffix.lower().removeprefix("."),
         "title": automatic_book_title(path),
@@ -284,7 +301,7 @@ def process_book_file(
     segment_size = int(config.get("segment_size", DEFAULT_SEGMENT_SIZE))
     if extension == ".txt":
         if mode == "source":
-            raise ValueError("原始目录方式只适用于 EPUB")
+            raise ValueError("原始目录方式只适用于 EPUB 或 MOBI")
         result = split_text_with_warnings(read_text(path), mode=mode, segment_size=segment_size)
         _replace_chapters(session, book, result.chapters)
         book.parse_warnings_json = result.warnings
@@ -327,6 +344,48 @@ def process_book_file(
             book,
             automatic_title,
             epub.author,
+            automatic_title_source=title_source,
+        )
+        return
+    if extension == ".mobi":
+        mobi = inspect_mobi(path)
+        book.parse_warnings_json = list(mobi.warnings or [])
+        automatic_title, title_source = _automatic_book_title_details(
+            path,
+            mobi.title if mobi.has_title_metadata else None,
+        )
+        if mode == "source" or (mode == "auto" and (mobi.has_navigation or len(mobi.chapters) > 1)):
+            chapters = [
+                TextChapter(
+                    title=chapter.title,
+                    original_title=chapter.title,
+                    normalized_title=chapter.title,
+                    body=chapter.body,
+                    source_position=position,
+                )
+                for position, chapter in enumerate(mobi.chapters)
+            ]
+            _replace_chapters(session, book, chapters, [chapter.href for chapter in mobi.chapters])
+        else:
+            combined = "\n\n".join(f"{chapter.title}\n{chapter.body}" for chapter in mobi.chapters)
+            result = split_text_with_warnings(combined, mode=mode, segment_size=segment_size)
+            _replace_chapters(session, book, result.chapters)
+            book.parse_warnings_json = result.warnings
+        book.last_chapter_split_at = datetime.now(timezone.utc)
+        _apply_automatic_cover(
+            book,
+            path,
+            cover_directory,
+            fingerprint,
+            automatic_title,
+            embedded_cover=mobi.cover,
+            embedded_source="mobi",
+            embedded_inspected=True,
+        )
+        apply_metadata_overrides(
+            book,
+            automatic_title,
+            mobi.author,
             automatic_title_source=title_source,
         )
         return
@@ -376,7 +435,7 @@ def scan_library(
                 saved_metadata = dict(book.metadata_overrides_json or {})
                 saved_source = saved_metadata.get("automatic_title_source")
                 internal_title: str | None = None
-                if book.format in {"epub", "pdf"}:
+                if book.format in {"epub", "mobi", "pdf"}:
                     if saved_source == "internal":
                         internal_title = str(saved_metadata.get("automatic_title") or book.title)
                     elif "automatic_title" not in saved_metadata and book.title != previous_path.stem:

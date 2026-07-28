@@ -1,6 +1,6 @@
 # 开源依赖与第三方材料清单
 
-审计日期：2026-07-24
+审计日期：2026-07-28
 
 本文根据仓库中的 `backend/pyproject.toml`、Android Gradle 配置、Gradle
 `releaseRuntimeClasspath`、Dockerfile、随 APK 打包的 AAR/模型/词典文件以及上游项目元数据整理。
@@ -40,6 +40,7 @@
 | pypdf | `>=6.13.3,<7` / 6.14.2 | PDF 元数据与目录 | BSD-3-Clause | https://github.com/py-pdf/pypdf |
 | PyMuPDF / MuPDF | `>=1.26,<2` / 1.28.0 | PDF/EPUB 封面渲染 | AGPL-3.0-only OR 商业许可 | https://github.com/pymupdf/PyMuPDF |
 | defusedxml | `>=0.7.1,<1` / 0.7.1 | 安全解析 EPUB XML | PSF-2.0 | https://github.com/tiran/defusedxml |
+| mobi / KindleUnpack | `==0.4.1` / 0.4.1 | 解包未加密 MOBI | GPL-3.0-only | https://github.com/iscc/mobi |
 
 ### 后端运行时传递依赖
 
@@ -65,6 +66,9 @@ Windows 审计环境不会安装它。
 | uvloop | 由 Linux 构建解析 | MIT |
 | greenlet | 3.5.3 | MIT AND PSF-2.0 |
 | python-dotenv | 1.2.2 | BSD-3-Clause |
+| Loguru | 0.7.3，mobi 传递依赖 | MIT |
+| standard-imghdr | 3.13.0，mobi 传递依赖 | PSF-2.0 |
+| win32-setctime | 1.2.0，仅 Windows 上由 Loguru 引入 | MIT |
 
 ### 后端测试与构建依赖
 

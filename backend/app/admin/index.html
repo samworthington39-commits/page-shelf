@@ -94,7 +94,7 @@
           <div>
             <p class="section-number">03 / BOOKS</p>
             <h2>图书与章节拆分</h2>
-            <p class="muted">以书架为单位查看书籍，并为每本 TXT 或 EPUB 单独选择拆分方式。</p>
+            <p class="muted">以书架为单位查看书籍，并为每本 TXT、EPUB 或 MOBI 单独选择拆分方式。</p>
           </div>
           <div class="book-toolbar">
             <label for="book-shelf-filter">书架
@@ -264,11 +264,11 @@
         <legend>选择拆分方式</legend>
         <label class="split-option" data-mode="auto">
           <input type="radio" name="split-mode" value="auto" checked>
-          <span><strong>智能识别</strong><small>推荐。综合标题格式与全文一致性；EPUB 优先使用原目录。</small></span>
+          <span><strong>智能识别</strong><small>推荐。综合标题格式与全文一致性；EPUB/MOBI 优先使用原目录。</small></span>
         </label>
         <label class="split-option epub-only" data-mode="source">
           <input type="radio" name="split-mode" value="source">
-          <span><strong>EPUB 原始目录</strong><small>严格保留 EPUB spine 与导航顺序，不重新判断标题。</small></span>
+          <span><strong>EPUB/MOBI 原始目录</strong><small>严格保留容器中的原始导航顺序，不重新判断标题。</small></span>
         </label>
         <label class="split-option" data-mode="strict">
           <input type="radio" name="split-mode" value="strict">
