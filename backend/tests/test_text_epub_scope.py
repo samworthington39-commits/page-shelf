@@ -163,3 +163,82 @@ def test_expanded_split_recognizes_common_numbering_and_preserves_source_order()
     assert chinese_number("一千零二") == 1002
     assert roman_number("XL") == 40
     assert roman_number("IIII") is None
+
+
+def test_classical_chinese_split_patterns():
+    body = "古书正文" * 12  # 保持每章正文足够长，避免触发短正文回退
+    text = (
+        "卷之一 少年游\n" + body + "\n"
+        "卷之二 凤求凰\n" + body + "\n"
+        "学而第一\n" + body + "\n"
+        "为政第二\n" + body + "\n"
+        "项羽本纪\n" + body + "\n"
+        "高祖本纪\n" + body + "\n"
+        "其一\n" + body + "\n"
+        "其二\n" + body + "\n"
+        "第三回 甄士隐梦幻识通灵\n" + body + "\n"
+        "第四回 贾夫人仙逝扬州城\n" + body
+    )
+
+    chapters = split_txt_chapters(text, mode="auto")
+
+    assert [chapter.title for chapter in chapters] == [
+        "卷之一 少年游",
+        "卷之二 凤求凰",
+        "学而第一",
+        "为政第二",
+        "项羽本纪",
+        "高祖本纪",
+        "其一",
+        "其二",
+        "第三回 甄士隐梦幻识通灵",
+        "第四回 贾夫人仙逝扬州城",
+    ]
+    assert [chapter.volume_index for chapter in chapters[:2]] == [1, 2]
+    assert chapters[0].level == "volume"
+    assert chapters[2].level == "chapter"
+
+
+def test_classical_volume_forms_and_conservative_auto_selection():
+    # 卷上/中/下与“第X则”在 auto 模式下应被识别。
+    volumes = split_txt_chapters("卷上\n上正文\n卷中\n中正文\n卷下\n下正文", mode="auto")
+    assert [chapter.title for chapter in volumes] == ["卷上", "卷中", "卷下"]
+    assert [chapter.volume_index for chapter in volumes] == [1, 2, 3]
+
+    guwen = split_txt_chapters(
+        "第一则 刻舟求剑\n楚人有涉江者\n第二则 守株待兔\n宋人有耕者",
+        mode="auto",
+    )
+    assert [chapter.title for chapter in guwen] == ["第一则 刻舟求剑", "第二则 守株待兔"]
+
+    # 现代文中零星的“卷一”不应在存在严格章节标记时被当作拆分点。
+    modern = split_txt_chapters(
+        "卷一 简介\n第一章 开始\n正文\n第二章 继续\n正文",
+        mode="auto",
+    )
+    # “卷一 简介”只出现一次，不会被当作拆分点，作为开篇正文保留。
+    assert [chapter.title for chapter in modern] == ["正文开篇", "第一章 开始", "第二章 继续"]
+
+
+def test_classical_mode_is_a_distinct_split_option():
+    body = "古籍正文" * 12  # 保持每章正文足够长，避免触发短正文回退
+    text = (
+        "第一章 白话序\n" + body + "\n"
+        "卷一 少年游\n" + body + "\n"
+        "学而第一\n" + body + "\n"
+        "其一\n" + body + "\n"
+        "Chapter 2 - English\n" + body + "\n"
+        "10\n" + body
+    )
+
+    classical = split_txt_chapters(text, mode="classical")
+    assert [chapter.title for chapter in classical] == [
+        "第一章 白话序",
+        "卷一 少年游",
+        "学而第一",
+        "其一",
+    ]
+
+    # auto 模式对零星的古籍标记保守：只有严格章节与英文章节被保留。
+    auto = split_txt_chapters(text, mode="auto")
+    assert [chapter.title for chapter in auto] == ["第一章 白话序", "Chapter 2 - English"]

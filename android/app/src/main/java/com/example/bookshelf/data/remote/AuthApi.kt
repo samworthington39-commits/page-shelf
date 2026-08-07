@@ -11,7 +11,6 @@ data class MobileLoginRequest(val password: String)
 data class MobileSessionDto(
     val accessToken: String,
     val tokenType: String,
-    val expiresAt: String,
     val apiVersion: String,
 )
 

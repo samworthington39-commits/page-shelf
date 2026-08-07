@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>页架 · 管理室</title>
-  <link rel="icon" href="/admin/assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/admin/assets/admin.css">
+  <link rel="icon" href="/admin/assets/favicon.svg?v=20260802" type="image/svg+xml">
+  <link rel="stylesheet" href="/admin/assets/admin.css?v=20260802">
 </head>
 <body>
   <div class="grain" aria-hidden="true"></div>
@@ -69,6 +69,7 @@
           <p class="muted">所有目录操作都被限制在容器已获得权限的存储范围内。</p>
         </div>
         <div class="header-actions">
+          <a id="reader-link" class="button button-outline" href="/reader">去阅读版</a>
           <button id="refresh-button" class="button button-quiet" type="button">刷新状态</button>
           <button id="scan-all-button" class="button button-primary" type="button">扫描全部书架</button>
         </div>
@@ -166,22 +167,25 @@
   <dialog id="shelf-dialog" class="dialog">
     <form id="shelf-form" class="dialog-card">
       <div class="dialog-head"><div><p class="section-number">NEW SHELF</p><h2>新建书架</h2></div><button class="dialog-close" type="button" aria-label="关闭">×</button></div>
-      <p class="muted">可直接把 NAS 已挂载的整个目录作为书架，也可以在其中创建子目录。</p>
+      <p class="muted">书架直接使用所选存储位置的整个目录。</p>
       <label for="shelf-name">书架名称</label>
       <input id="shelf-name" name="name" placeholder="例如：文学与小说" required maxlength="200" autocomplete="off">
       <label for="shelf-location">存储位置</label>
       <select id="shelf-location" name="storage_location_id" required></select>
-      <label class="check-row"><input id="shelf-root" type="checkbox" checked><span>直接使用整个存储位置</span></label>
-      <label for="shelf-folder">相对目录</label>
-      <input id="shelf-folder" name="relative_path" value="." placeholder="novels" required disabled autocomplete="off">
       <div class="two-fields">
         <label class="check-row"><input id="shelf-auto" type="checkbox" checked><span>启用自动扫描</span></label>
-        <label for="shelf-interval">扫描间隔（分钟）<input id="shelf-interval" type="number" min="1" max="10080" value="5" required></label>
+        <label for="shelf-interval">扫描间隔
+          <span class="interval-control"><input id="shelf-interval" type="number" min="1" max="525600" value="5" required><select id="shelf-interval-unit">
+            <option value="minutes" selected>分钟</option>
+            <option value="hours">小时</option>
+            <option value="days">天</option>
+            <option value="weeks">周</option>
+          </select></span>
+        </label>
       </div>
-      <label class="check-row"><input id="shelf-hidden" type="checkbox"><span>设为隐藏书架</span></label>
       <label for="shelf-pin">四位访问密码</label>
-      <input id="shelf-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="new-password" placeholder="可选；隐藏书架必须设置">
-      <p class="field-hint">设置后 App 会要求输入密码。后台已登录，可直接设置或修改，无需验证旧密码。</p>
+      <input id="shelf-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="new-password" placeholder="可选；设置后 App 会要求输入">
+      <p class="field-hint">留空表示不设密码。后台已登录，可直接设置或修改，无需验证旧密码。</p>
       <p id="shelf-error" class="form-error" role="alert"></p>
       <div class="dialog-actions"><button class="button button-quiet" type="button" data-close-dialog>取消</button><button class="button button-primary" type="submit" value="default">创建并扫描</button></div>
     </form>
@@ -274,6 +278,10 @@
           <input type="radio" name="split-mode" value="strict">
           <span><strong>严格章节标题</strong><small>仅识别“第 X 章 / Chapter X”等明确章节标志，误拆最少。</small></span>
         </label>
+        <label class="split-option" data-mode="classical">
+          <input type="radio" name="split-mode" value="classical">
+          <span><strong>古文拆分</strong><small>识别卷、回、则、出、品、经书篇名、纪传表志与“其一/其二”等古籍体例。</small></span>
+        </label>
         <label class="split-option" data-mode="expanded">
           <input type="radio" name="split-mode" value="expanded">
           <span><strong>扩展标题识别</strong><small>同时识别卷、部、节、番外、特殊章节及连续纯数字标题。</small></span>
@@ -342,6 +350,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="/admin/assets/admin.js" defer></script>
+  <script src="/admin/assets/admin.js?v=20260802" defer></script>
 </body>
 </html>

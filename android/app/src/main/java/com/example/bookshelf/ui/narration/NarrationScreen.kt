@@ -201,6 +201,13 @@ fun NarrationScreen(
                     onPlaybackSpeedChange = controller::setPlaybackSpeed,
                     modifier = Modifier.padding(top = 22.dp),
                 )
+                NarrationSleepTimerControl(
+                    timer = state.sleepTimer.takeIf { isThisBook },
+                    endsAtElapsedRealtimeMs = state.sleepTimerEndsAtElapsedRealtimeMs.takeIf { isThisBook },
+                    enabled = active,
+                    onTimerChange = controller::setSleepTimer,
+                    modifier = Modifier.padding(top = 22.dp),
+                )
                 Text(
                     "朗读引擎与内置女声均在本机运行，朗读时不上传正文。",
                     style = MaterialTheme.typography.bodySmall,

@@ -25,10 +25,10 @@ android/app/src/main/java/com/example/bookshelf/
 
 ## 认证
 
-Android 和网页阅读器只在登录请求中提交管理密码。后端验证后签发 HMAC 短期会话；普通阅读请求使用
+Android 和网页阅读器只在登录请求中提交管理密码。后端验证后签发 HMAC 会话；普通阅读请求使用
 `Authorization: Bearer`。网页阅读器只把会话保存在当前标签页的 `sessionStorage`，不持久化密码；
-书架 PIN 仅保存在页面内存。Android 使用 Keystore 加密保存可撤销的短期会话，不持久化管理密码；
-会话过期后需要重新输入密码。OkHttp 只启用 BASIC 日志，不记录请求头、密码、Token 或正文。
+书架 PIN 仅保存在页面内存。Android 使用 Keystore 加密保存可撤销的会话，不持久化管理密码；
+会话不设有效时限，仅在服务器修改管理密码后全部失效。OkHttp 只启用 BASIC 日志，不记录请求头、密码、Token 或正文。
 
 管理后台使用独立作用域的 HttpOnly Cookie。管理 Cookie 不能作为阅读 Bearer 会话使用，阅读会话也
 不能调用管理接口。

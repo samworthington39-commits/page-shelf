@@ -20,3 +20,10 @@ android/app/build/
 *.iml
 .idea/
 local.properties
+
+# Local scratch / automation artifacts
+.verify/
+.codex-acr-push-helper.py
+.codex-acr-push-launcher.ps1
+.codex-acr-push-status.txt
+.codex-acr-push.log

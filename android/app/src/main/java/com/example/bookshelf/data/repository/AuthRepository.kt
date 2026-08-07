@@ -6,7 +6,6 @@ import com.example.bookshelf.data.remote.ServerConnectionTester
 import com.example.bookshelf.data.settings.SecureCredentialStore
 import com.example.bookshelf.data.settings.ServerConfig
 import com.example.bookshelf.data.settings.ServerConfigStore
-import java.time.Instant
 import retrofit2.HttpException
 
 data class AuthResult(val latencyMillis: Long, val apiVersion: String)
@@ -19,7 +18,8 @@ class AuthRepository(
 ) {
     init {
         // Older builds retained the management password for silent re-login. Keep only the
-        // revocable, expiring session token from now on.
+        // revocable session token from now on. Sessions do not expire on their own; the
+        // server invalidates them when the management password is changed.
         credentials.clearPassword()
     }
 
@@ -42,17 +42,15 @@ class AuthRepository(
         if (session.apiVersion.substringBefore('.') != "1") {
             throw AuthException("后端版本不兼容，请将服务器升级到 API 1.x")
         }
-        val expiresAt = runCatching { Instant.parse(session.expiresAt).toEpochMilli() }
-            .getOrElse { throw AuthException("服务器返回了无效的登录会话") }
         configStore.save(config)
         credentials.clearPassword()
-        credentials.saveSession(session.accessToken, expiresAt)
+        credentials.saveSession(session.accessToken)
         return AuthResult(health.latencyMillis, session.apiVersion)
     }
 
     suspend fun autoLogin(): AuthResult {
         check(configStore.isConfigured) { "尚未配置服务器" }
-        val token = credentials.bearerToken() ?: throw AuthException("登录已过期，请重新输入管理密码")
+        val token = credentials.bearerToken() ?: throw AuthException("未检测到有效登录，请输入管理密码")
         val config = configStore.current()
         val health = connectionTester.test(config)
         val session = try {
@@ -60,7 +58,7 @@ class AuthRepository(
         } catch (error: HttpException) {
             if (error.code() == 401) credentials.clearSession()
             throw AuthException(
-                if (error.code() == 401) "登录已过期，请重新输入管理密码"
+                if (error.code() == 401) "登录已失效，请重新输入管理密码"
                 else "无法验证登录状态（HTTP ${error.code()}）",
                 error,
             )

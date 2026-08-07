@@ -51,10 +51,10 @@ class Shelf(Base):
         ForeignKey("storage_locations.id", ondelete="RESTRICT"), index=True
     )
     relative_path: Mapped[str] = mapped_column(Text)
-    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
     access_pin_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     auto_scan_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     scan_interval_minutes: Mapped[int] = mapped_column(Integer, default=5)
+    scan_interval_unit: Mapped[str] = mapped_column(String(8), default="minutes")
     scan_status: Mapped[str] = mapped_column(String(24), default="idle")
     last_scan_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_scan_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -81,6 +81,7 @@ class Book(Base):
         ForeignKey("shelves.id", ondelete="SET NULL"), nullable=True, index=True
     )
     format: Mapped[str] = mapped_column(String(12), index=True)
+    shelf_visible: Mapped[bool] = mapped_column(Boolean, default=True)
     title: Mapped[str] = mapped_column(String(500))
     author: Mapped[str | None] = mapped_column(String(500), nullable=True)
     subject: Mapped[str | None] = mapped_column(Text, nullable=True)

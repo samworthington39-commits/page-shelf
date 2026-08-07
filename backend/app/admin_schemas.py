@@ -59,9 +59,10 @@ class ShelfCreate(BaseModel):
     storage_location_id: str
     relative_path: str = Field(min_length=1, max_length=1000)
     auto_scan_enabled: bool = True
-    scan_interval_minutes: int = Field(default=5, ge=1, le=10080)
+    scan_interval_value: int | None = Field(default=None, ge=1)
+    scan_interval_unit: Literal["minutes", "hours", "days", "weeks"] = "minutes"
+    scan_interval_minutes: int | None = Field(default=None, ge=1, le=525_600)
     scan_after_create: bool = True
-    is_hidden: bool = False
     access_pin: str | None = Field(default=None, pattern=r"^\d{4}$")
 
     @field_validator("name", "relative_path")
@@ -73,8 +74,9 @@ class ShelfCreate(BaseModel):
 class ShelfUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     auto_scan_enabled: bool | None = None
-    scan_interval_minutes: int | None = Field(default=None, ge=1, le=10080)
-    is_hidden: bool | None = None
+    scan_interval_value: int | None = Field(default=None, ge=1)
+    scan_interval_unit: Literal["minutes", "hours", "days", "weeks"] | None = None
+    scan_interval_minutes: int | None = Field(default=None, ge=1, le=525_600)
     access_pin: str | None = Field(default=None, pattern=r"^\d{4}$")
 
     @field_validator("name")
@@ -106,9 +108,10 @@ class ShelfView(BaseModel):
     storage_location_name: str
     relative_path: str
     resolved_path: str
-    is_hidden: bool
     pin_configured: bool
     auto_scan_enabled: bool
+    scan_interval_value: int
+    scan_interval_unit: str
     scan_interval_minutes: int
     scan_status: str
     book_count: int
@@ -132,6 +135,7 @@ class AdminOverview(BaseModel):
 class AdminBookView(BaseModel):
     id: str
     shelf_id: str
+    shelf_visible: bool
     title: str
     author: str | None
     format: str
@@ -154,8 +158,12 @@ class AdminBookView(BaseModel):
 
 
 class ChapterSplitUpdate(BaseModel):
-    mode: Literal["auto", "source", "strict", "expanded", "fixed", "single"]
+    mode: Literal["auto", "source", "strict", "classical", "expanded", "fixed", "single"]
     segment_size: int = Field(default=12_000, ge=1_000, le=100_000)
+
+
+class ShelfBookVisibilityUpdate(BaseModel):
+    shelf_visible: bool
 
 
 class BookMetadataUpdate(BaseModel):

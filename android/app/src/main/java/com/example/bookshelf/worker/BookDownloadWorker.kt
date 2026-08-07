@@ -1,6 +1,7 @@
 package com.example.bookshelf.worker
 
 import android.content.Context
+import android.util.Log
 import android.os.storage.StorageManager
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -27,13 +28,13 @@ class BookDownloadWorker(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val bookId = inputData.getString(KEY_BOOK_ID) ?: return@withContext Result.failure()
         val format = inputData.getString(KEY_FORMAT) ?: return@withContext Result.failure()
-        val contentVersion = inputData.getString(KEY_CONTENT_VERSION)
+        var contentVersion = inputData.getString(KEY_CONTENT_VERSION)
             ?: inputData.getString(LEGACY_KEY_FINGERPRINT)
             ?: return@withContext Result.failure()
-        val fileFingerprint = inputData.getString(KEY_FILE_FINGERPRINT)
+        var fileFingerprint = inputData.getString(KEY_FILE_FINGERPRINT)
             ?: contentVersion.substringBefore(':')
         val permanent = inputData.getBoolean(KEY_PERMANENT, true)
-        val expectedTotal = inputData.getLong(KEY_TOTAL_BYTES, 0L)
+        var expectedTotal = inputData.getLong(KEY_TOTAL_BYTES, 0L)
         val container = (applicationContext as PageShelfApplication).container
         if (container.credentials.bearerToken() == null) {
             runCatching { container.auth.autoLogin() }.getOrElse { error ->
@@ -103,10 +104,30 @@ class BookDownloadWorker(
                 }
             }
             if (expectedTotal > 0 && partial.length() != expectedTotal) {
-                error("文件不完整：${partial.length()} / $expectedTotal bytes")
+                // The catalog file size can lag the real file when the server-side file is
+                // replaced before the scanner recomputes metadata. Re-fetch before failing.
+                val fresh = runCatching { container.api.book(bookId) }.getOrNull()
+                if (fresh == null || fresh.fileSize <= 0 || partial.length() != fresh.fileSize) {
+                    error("文件不完整：${partial.length()} / $expectedTotal bytes")
+                }
+                expectedTotal = fresh.fileSize
             }
             if (!sha256(partial).equals(fileFingerprint, ignoreCase = true)) {
-                error("文件校验失败，下载内容可能已损坏")
+                // The server fingerprint (ETag) used at enqueue time can be stale when the
+                // source file changed on the server after the catalog was last scanned. The
+                // bytes we downloaded are exactly what the server served; re-validate them
+                // against a freshly fetched fingerprint before declaring the file corrupt.
+                val fresh = runCatching { container.api.book(bookId) }.getOrNull()
+                val freshFileFingerprint = fresh?.fingerprint
+                    ?.takeIf { it.isNotBlank() }
+                    ?: fresh?.fingerprint?.substringBefore(':')?.takeIf { it.isNotBlank() }
+                if (freshFileFingerprint == null || !sha256(partial).equals(freshFileFingerprint, ignoreCase = true)) {
+                    error("文件校验失败，下载内容可能已损坏")
+                }
+                Log.w(TAG, "整本下载：文件校验通过（已用最新指纹重验）bookId=$bookId old=$fileFingerprint new=$freshFileFingerprint")
+                fileFingerprint = freshFileFingerprint
+                fresh?.fingerprint?.takeIf { it.isNotBlank() }?.let { contentVersion = it }
+                fresh?.fileSize?.takeIf { it > 0 }?.let { expectedTotal = it }
             }
             Files.move(partial.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
 
@@ -193,6 +214,7 @@ class BookDownloadWorker(
     }
 
     companion object {
+        private const val TAG = "PageShelfDownload"
         const val KEY_BOOK_ID = "book_id"
         const val KEY_FORMAT = "format"
         const val KEY_CONTENT_VERSION = "content_version"

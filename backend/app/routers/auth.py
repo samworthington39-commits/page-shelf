@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import time
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
@@ -28,7 +25,6 @@ class MobileLogin(BaseModel):
 class MobileSession(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    expires_at: datetime
     api_version: str = API_VERSION
 
 
@@ -49,11 +45,7 @@ def login(payload: MobileLogin, request: Request, settings: Settings = Depends(g
         record_login_failure(request)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="管理密码错误")
     clear_login_failures(request)
-    lifetime_seconds = max(settings.admin_session_hours, 1) * 3600
-    return MobileSession(
-        access_token=create_session_token(settings, "mobile"),
-        expires_at=datetime.fromtimestamp(time.time() + lifetime_seconds, tz=timezone.utc),
-    )
+    return MobileSession(access_token=create_session_token(settings, "mobile"))
 
 
 @router.get("/session", dependencies=[Depends(require_mobile_session)])

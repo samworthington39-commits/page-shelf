@@ -22,6 +22,7 @@ from ..admin_schemas import (
     AdminResetResponse,
     BookMetadataUpdate,
     ChapterSplitUpdate,
+    ShelfBookVisibilityUpdate,
     ShelfCreate,
     ShelfUpdate,
     ShelfView,
@@ -62,6 +63,22 @@ from ..services.storage_roots import active_storage_roots, refresh_storage_roots
 router = APIRouter(prefix="/admin", tags=["admin"])
 admin_directory = Path(__file__).parents[1] / "admin"
 
+# 会话不设有效时限：内网部署下管理 Cookie 长期有效，仅修改管理密码后全部失效。
+SESSION_COOKIE_MAX_AGE = 10 * 365 * 24 * 3600
+
+SCAN_INTERVAL_MULTIPLIERS = {"minutes": 1, "hours": 60, "days": 1440, "weeks": 10_080}
+MAX_SCAN_INTERVAL_MINUTES = 525_600
+
+
+def _scan_interval_minutes(value: int, unit: str) -> int:
+    multiplier = SCAN_INTERVAL_MULTIPLIERS.get(unit)
+    if multiplier is None:
+        raise ValueError("扫描间隔单位无效")
+    minutes = value * multiplier
+    if not 1 <= minutes <= MAX_SCAN_INTERVAL_MINUTES:
+        raise ValueError("扫描间隔必须在 1 分钟到 1 年之间")
+    return minutes
+
 
 def admin_page() -> FileResponse:
     response = FileResponse(admin_directory / "index.html", media_type="text/html")
@@ -100,7 +117,7 @@ def login(payload: AdminLogin, request: Request, settings: Settings = Depends(ge
     response.set_cookie(
         ADMIN_COOKIE,
         create_session_token(settings, "admin"),
-        max_age=max(settings.admin_session_hours, 1) * 3600,
+        max_age=SESSION_COOKIE_MAX_AGE,
         httponly=True,
         secure=request.url.scheme == "https",
         samesite="strict",
@@ -127,7 +144,7 @@ def change_password(
     response.set_cookie(
         ADMIN_COOKIE,
         create_session_token(settings, "admin"),
-        max_age=max(settings.admin_session_hours, 1) * 3600,
+        max_age=SESSION_COOKIE_MAX_AGE,
         httponly=True,
         secure=request.url.scheme == "https",
         samesite="strict",
@@ -175,9 +192,10 @@ def _shelf_view(
         storage_location_name=shelf.storage_location.name,
         relative_path=shelf.relative_path,
         resolved_path=path,
-        is_hidden=shelf.is_hidden,
         pin_configured=shelf.access_pin_hash is not None,
         auto_scan_enabled=shelf.auto_scan_enabled,
+        scan_interval_value=_scan_interval_display(shelf),
+        scan_interval_unit=_scan_interval_unit(shelf),
         scan_interval_minutes=shelf.scan_interval_minutes,
         scan_status=shelf.scan_status,
         book_count=int(book_count),
@@ -188,6 +206,19 @@ def _shelf_view(
         last_scan_error=shelf.last_scan_error,
         created_at=shelf.created_at,
     )
+
+
+def _scan_interval_unit(shelf: Shelf) -> str:
+    return shelf.scan_interval_unit if shelf.scan_interval_unit in SCAN_INTERVAL_MULTIPLIERS else "minutes"
+
+
+def _scan_interval_display(shelf: Shelf) -> int:
+    unit = _scan_interval_unit(shelf)
+    multiplier = SCAN_INTERVAL_MULTIPLIERS[unit]
+    minutes = shelf.scan_interval_minutes
+    if minutes % multiplier:
+        return minutes
+    return minutes // multiplier
 
 
 def _book_view(book: Book) -> AdminBookView:
@@ -201,6 +232,7 @@ def _book_view(book: Book) -> AdminBookView:
     return AdminBookView(
         id=book.id,
         shelf_id=book.shelf_id or "",
+        shelf_visible=book.shelf_visible,
         title=book.title,
         author=book.author,
         format=book.format,
@@ -457,6 +489,15 @@ def create_shelf(
     location = session.get(StorageLocation, payload.storage_location_id)
     if location is None:
         raise HTTPException(status_code=404, detail="存储位置不存在")
+    if payload.scan_interval_value is not None:
+        try:
+            interval_minutes = _scan_interval_minutes(payload.scan_interval_value, payload.scan_interval_unit)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        interval_unit = payload.scan_interval_unit
+    else:
+        interval_minutes = payload.scan_interval_minutes or 5
+        interval_unit = "minutes"
     try:
         allowed_storage_path(location.path, settings, create=False)
         path = shelf_directory(location.path, payload.relative_path, create=True)
@@ -467,18 +508,18 @@ def create_shelf(
             name=payload.name,
             storage_location_id=location.id,
             relative_path=payload.relative_path.strip().replace("\\", "/").strip("/"),
-            is_hidden=payload.is_hidden,
             access_pin_hash=hash_shelf_pin(payload.access_pin) if payload.access_pin else None,
             auto_scan_enabled=payload.auto_scan_enabled,
-            scan_interval_minutes=payload.scan_interval_minutes,
+            scan_interval_minutes=interval_minutes,
+            scan_interval_unit=interval_unit,
         )
-        if shelf.is_hidden and shelf.access_pin_hash is None:
-            raise HTTPException(status_code=422, detail="隐藏书架必须设置四位数字密码")
         session.add(shelf)
         session.commit()
         if payload.scan_after_create:
             scan_shelf(session, shelf, settings)
     except StoragePathError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except IntegrityError as exc:
         session.rollback()
@@ -498,18 +539,59 @@ def update_shelf(
         raise HTTPException(status_code=404, detail="书架不存在")
     values = payload.model_dump(exclude_unset=True)
     access_pin = values.pop("access_pin", None)
+    interval_value = values.pop("scan_interval_value", None)
+    interval_unit = values.pop("scan_interval_unit", None)
+    interval_minutes = values.pop("scan_interval_minutes", None)
+    if interval_value is not None or interval_unit is not None or interval_minutes is not None:
+        if interval_value is None:
+            if interval_minutes is not None:
+                interval_value = interval_minutes
+                interval_unit = interval_unit or "minutes"
+            else:
+                current_unit = _scan_interval_unit(shelf)
+                multiplier = SCAN_INTERVAL_MULTIPLIERS[current_unit]
+                if shelf.scan_interval_minutes % multiplier:
+                    interval_value = shelf.scan_interval_minutes
+                    interval_unit = "minutes"
+                else:
+                    interval_value = shelf.scan_interval_minutes // multiplier
+                    interval_unit = interval_unit or current_unit
+        if interval_unit is None:
+            interval_unit = "minutes"
+        try:
+            shelf.scan_interval_minutes = _scan_interval_minutes(interval_value, interval_unit)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        shelf.scan_interval_unit = interval_unit
     for field, value in values.items():
         setattr(shelf, field, value)
     if "access_pin" in payload.model_fields_set:
         shelf.access_pin_hash = hash_shelf_pin(access_pin) if access_pin else None
-    if shelf.is_hidden and shelf.access_pin_hash is None:
-        raise HTTPException(status_code=422, detail="隐藏书架必须设置四位数字密码")
     try:
         session.commit()
     except IntegrityError as exc:
         session.rollback()
         raise HTTPException(status_code=409, detail="书架名称已存在") from exc
     return _shelf_view(session, shelf, settings)
+
+
+@router.patch(
+    "/books/{book_id}/shelf-visibility",
+    response_model=AdminBookView,
+    dependencies=[Depends(require_admin)],
+)
+def update_book_shelf_visibility(
+    book_id: str,
+    payload: ShelfBookVisibilityUpdate,
+    session: Session = Depends(get_db),
+) -> AdminBookView:
+    book = session.get(Book, book_id)
+    if book is None:
+        raise HTTPException(status_code=404, detail="书籍不存在")
+    book.shelf_visible = payload.shelf_visible
+    session.commit()
+    session.refresh(book)
+    return _book_view(book)
 
 
 @router.get(

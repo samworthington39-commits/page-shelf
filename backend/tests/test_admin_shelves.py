@@ -45,6 +45,8 @@ def test_management_page_login_and_security_boundary(client):
     assert 'id="edit-book-location"' in page.text
     assert 'id="split-dialog"' in page.text
     assert 'id="reset-button"' in page.text
+    assert 'id="reader-link"' in page.text
+    assert 'href="/reader"' in page.text
     assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
     assert unauthorized.status_code == 401
     assert wrong_password.status_code == 401
@@ -277,7 +279,7 @@ def test_update_scan_policy_and_delete_shelf_keeps_original_files(client, db_ses
     assert source.is_file()
 
 
-def test_public_shelves_follow_folders_and_hidden_shelf_requires_pin(client, db_session):
+def test_public_shelves_follow_folders_and_pin_shelf_requires_pin(client, db_session):
     public_directory = TEST_LIBRARY / "public"
     hidden_directory = TEST_LIBRARY / "hidden"
     public_directory.mkdir()
@@ -300,20 +302,18 @@ def test_public_shelves_follow_folders_and_hidden_shelf_requires_pin(client, db_
         "/api/v1/admin/shelves",
         headers=ADMIN_HEADERS,
         json={
-            "name": "隐藏书架",
+            "name": "受密码保护的书架",
             "storage_location_id": location["id"],
             "relative_path": "hidden",
-            "is_hidden": True,
             "access_pin": "2580",
         },
     )
 
     assert public.status_code == 201
     assert hidden.status_code == 201
-    assert hidden.json()["is_hidden"] is True
     assert hidden.json()["pin_configured"] is True
     shelves = client.get("/api/v1/shelves").json()
-    assert [shelf["name"] for shelf in shelves] == ["公开书架", "隐藏书架"]
+    assert [shelf["name"] for shelf in shelves] == ["公开书架", "受密码保护的书架"]
     assert len(shelves[0]["books"]) == 1
     assert shelves[1]["locked"] is True
     assert shelves[1]["books"] == []
@@ -331,20 +331,58 @@ def test_public_shelves_follow_folders_and_hidden_shelf_requires_pin(client, db_
     assert allowed_book.status_code == 200
 
 
-def test_hidden_shelf_requires_four_digit_pin(client):
+def test_recent_reading_is_grouped_inside_each_shelf(client):
+    first_directory = TEST_LIBRARY / "recent-first"
+    second_directory = TEST_LIBRARY / "recent-second"
+    first_directory.mkdir()
+    second_directory.mkdir()
+    (first_directory / "甲书.txt").write_text("第一章 开始\n甲书正文", encoding="utf-8")
+    (second_directory / "乙书.txt").write_text("第一章 开始\n乙书正文", encoding="utf-8")
     _login(client)
     location = _create_location(client)
 
-    missing = client.post(
-        "/api/v1/admin/shelves",
-        headers=ADMIN_HEADERS,
-        json={
-            "name": "缺少密码",
-            "storage_location_id": location["id"],
-            "relative_path": "missing-pin",
-            "is_hidden": True,
-        },
-    )
+    for name, relative_path in (("甲书架", "recent-first"), ("乙书架", "recent-second")):
+        response = client.post(
+            "/api/v1/admin/shelves",
+            headers=ADMIN_HEADERS,
+            json={
+                "name": name,
+                "storage_location_id": location["id"],
+                "relative_path": relative_path,
+            },
+        )
+        assert response.status_code == 201, response.text
+
+    shelves = client.get("/api/v1/shelves").json()
+    first_book = shelves[0]["books"][0]
+    second_book = shelves[1]["books"][0]
+    for book, progression in ((first_book, 0.25), (second_book, 0.75)):
+        saved = client.put(
+            f"/api/v1/books/{book['id']}/progress/recent-web",
+            json={
+                "progression": progression,
+                "locator_json": {
+                    "type": "text",
+                    "chapter_index": 0,
+                    "chapter_title": "第一章 开始",
+                    "chapter_progress": progression,
+                },
+            },
+        )
+        assert saved.status_code == 200, saved.text
+
+    refreshed = {shelf["name"]: shelf for shelf in client.get("/api/v1/shelves").json()}
+
+    assert [item["book"]["id"] for item in refreshed["甲书架"]["recent_reading"]] == [first_book["id"]]
+    assert [item["book"]["id"] for item in refreshed["乙书架"]["recent_reading"]] == [second_book["id"]]
+    assert refreshed["甲书架"]["recent_reading"][0]["progression"] == 0.25
+    assert refreshed["乙书架"]["recent_reading"][0]["progression"] == 0.75
+
+
+def test_shelf_pin_must_be_four_digits(client):
+    _login(client)
+    location = _create_location(client)
+
     invalid = client.post(
         "/api/v1/admin/shelves",
         headers=ADMIN_HEADERS,
@@ -352,12 +390,10 @@ def test_hidden_shelf_requires_four_digit_pin(client):
             "name": "密码格式错误",
             "storage_location_id": location["id"],
             "relative_path": "bad-pin",
-            "is_hidden": True,
             "access_pin": "12345",
         },
     )
 
-    assert missing.status_code == 422
     assert invalid.status_code == 422
 
 
@@ -387,7 +423,6 @@ def test_existing_public_shelf_password_can_be_set_changed_and_cleared(client, d
     locked = client.get("/api/v1/shelves").json()[0]
     assert protected.status_code == 200
     assert protected.json()["pin_configured"] is True
-    assert locked["is_hidden"] is False
     assert locked["locked"] is True
     assert locked["books"] == []
     assert book_id not in {book["id"] for book in client.get("/api/v1/books").json()}
@@ -724,3 +759,130 @@ def test_pdf_rejects_chapter_split_settings(client):
     )
     assert response.status_code == 422
     assert "PDF" in response.json()["detail"]
+
+
+def test_book_can_be_resplit_with_classical_mode(client):
+    shelf_directory = TEST_LIBRARY / "classical-split"
+    shelf_directory.mkdir()
+    (shelf_directory / "古籍.txt").write_text(
+        "卷一 少年游\n" + ("甲" * 1200) + "\n学而第一\n" + ("乙" * 1200),
+        encoding="utf-8",
+    )
+    _login(client)
+    location = _create_location(client)
+    shelf = client.post(
+        "/api/v1/admin/shelves",
+        headers=ADMIN_HEADERS,
+        json={
+            "name": "古籍拆分书架",
+            "storage_location_id": location["id"],
+            "relative_path": "classical-split",
+        },
+    ).json()
+    book = client.get(f"/api/v1/admin/shelves/{shelf['id']}/books").json()[0]
+
+    changed = client.patch(
+        f"/api/v1/admin/books/{book['id']}/chapter-split",
+        headers=ADMIN_HEADERS,
+        json={"mode": "classical"},
+    )
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["chapter_split_mode"] == "classical"
+    assert changed.json()["chapter_count"] == 2
+    assert changed.json()["chapter_split_revision"] == 1
+
+
+def test_shelf_book_can_be_hidden_and_restored(client, db_session):
+    shelf_directory = TEST_LIBRARY / "visibility"
+    shelf_directory.mkdir()
+    (shelf_directory / "可见.txt").write_text("第一章 开始\n可见正文", encoding="utf-8")
+    (shelf_directory / "待隐藏.txt").write_text("第一章 开始\n待隐藏正文", encoding="utf-8")
+    _login(client)
+    location = _create_location(client)
+    shelf = client.post(
+        "/api/v1/admin/shelves",
+        headers=ADMIN_HEADERS,
+        json={
+            "name": "可见性书架",
+            "storage_location_id": location["id"],
+            "relative_path": "visibility",
+        },
+    ).json()
+
+    books = client.get(f"/api/v1/admin/shelves/{shelf['id']}/books").json()
+    assert len(books) == 2
+    target = next(book for book in books if book["filename"] == "待隐藏.txt")
+    other = next(book for book in books if book["filename"] == "可见.txt")
+    assert target["shelf_visible"] is True
+
+    hidden = client.patch(
+        f"/api/v1/admin/books/{target['id']}/shelf-visibility",
+        headers=ADMIN_HEADERS,
+        json={"shelf_visible": False},
+    )
+    assert hidden.status_code == 200
+    assert hidden.json()["shelf_visible"] is False
+
+    public_shelf = client.get("/api/v1/shelves").json()[0]
+    assert [book["id"] for book in public_shelf["books"]] == [other["id"]]
+    assert public_shelf["book_count"] == 1
+    flat = client.get("/api/v1/books").json()
+    assert target["id"] not in {book["id"] for book in flat}
+    assert other["id"] in {book["id"] for book in flat}
+
+    # 管理后台仍然能看到被隐藏的书，以便恢复。
+    admin_books = client.get(f"/api/v1/admin/shelves/{shelf['id']}/books").json()
+    assert len(admin_books) == 2
+    assert next(book for book in admin_books if book["id"] == target["id"])["shelf_visible"] is False
+
+    restored = client.patch(
+        f"/api/v1/admin/books/{target['id']}/shelf-visibility",
+        headers=ADMIN_HEADERS,
+        json={"shelf_visible": True},
+    )
+    assert restored.status_code == 200
+    public_shelf = client.get("/api/v1/shelves").json()[0]
+    assert {book["id"] for book in public_shelf["books"]} == {target["id"], other["id"]}
+    assert public_shelf["book_count"] == 2
+
+
+def test_scan_interval_units_are_persisted_and_converted(client):
+    _login(client)
+    location = _create_location(client)
+    created = client.post(
+        "/api/v1/admin/shelves",
+        headers=ADMIN_HEADERS,
+        json={
+            "name": "间隔单位书架",
+            "storage_location_id": location["id"],
+            "relative_path": "interval-units",
+            "scan_interval_value": 2,
+            "scan_interval_unit": "days",
+        },
+    )
+
+    assert created.status_code == 201, created.text
+    shelf = created.json()
+    assert shelf["scan_interval_value"] == 2
+    assert shelf["scan_interval_unit"] == "days"
+    assert shelf["scan_interval_minutes"] == 2 * 24 * 60
+
+    updated = client.patch(
+        f"/api/v1/admin/shelves/{shelf['id']}",
+        headers=ADMIN_HEADERS,
+        json={"scan_interval_value": 3, "scan_interval_unit": "weeks"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["scan_interval_value"] == 3
+    assert updated.json()["scan_interval_unit"] == "weeks"
+    assert updated.json()["scan_interval_minutes"] == 3 * 7 * 24 * 60
+
+    legacy = client.patch(
+        f"/api/v1/admin/shelves/{shelf['id']}",
+        headers=ADMIN_HEADERS,
+        json={"scan_interval_minutes": 30},
+    )
+    assert legacy.status_code == 200
+    assert legacy.json()["scan_interval_value"] == 30
+    assert legacy.json()["scan_interval_unit"] == "minutes"
+    assert legacy.json()["scan_interval_minutes"] == 30

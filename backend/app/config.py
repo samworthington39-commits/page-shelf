@@ -15,7 +15,6 @@ class Settings(BaseSettings):
     admin_password: str = "112233"
     admin_session_secret: str = ""
     admin_credentials_path: Path = Path("./data/admin_credentials.json")
-    admin_session_hours: int = 24
     auto_scan_poll_seconds: int = 30
     enable_api_docs: bool = False
 

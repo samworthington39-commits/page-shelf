@@ -24,7 +24,14 @@ async function api(path, options = {}) {
   }
   if (!response.ok) {
     let message = `请求失败：HTTP ${response.status}`;
-    try { message = (await response.json()).detail || message; } catch (_) { /* response is not JSON */ }
+    try {
+      const detail = (await response.json()).detail;
+      if (Array.isArray(detail)) {
+        message = detail.map((item) => item.msg || String(item)).join("；");
+      } else if (detail) {
+        message = detail;
+      }
+    } catch (_) { /* response is not JSON */ }
     throw new Error(message);
   }
   if (response.status === 204) return null;
@@ -57,6 +64,7 @@ function splitModeLabel(mode, format) {
     auto: "智能识别",
     source: "EPUB/MOBI 原始目录",
     strict: "严格章节标题",
+    classical: "古文拆分",
     expanded: "扩展标题识别",
     fixed: "固定字数",
     single: "整本单章",
@@ -156,6 +164,12 @@ function summaryText(shelf) {
   return `上次：新增 ${summary.imported || 0} · 更新 ${summary.updated || 0} · 移除 ${summary.removed || 0} · 失败 ${(summary.failures || []).length}`;
 }
 
+function intervalUnitOptions(selected) {
+  return [["minutes", "分钟"], ["hours", "小时"], ["days", "天"], ["weeks", "周"]]
+    .map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`)
+    .join("");
+}
+
 function renderShelves(shelves) {
   const target = $("#shelf-list");
   if (!shelves.length) {
@@ -176,10 +190,9 @@ function renderShelves(shelves) {
         </div>
         <div class="shelf-controls">
           <label class="auto-control"><input class="auto-toggle" type="checkbox" ${shelf.auto_scan_enabled ? "checked" : ""}><span>自动扫描</span></label>
-          <label class="interval-control"><span>每</span><input class="interval-input" type="number" min="1" max="10080" value="${shelf.scan_interval_minutes}"><span>分钟</span></label>
+          <label class="interval-control"><span>每</span><input class="interval-input" type="number" min="1" value="${shelf.scan_interval_value}"><select class="interval-unit">${intervalUnitOptions(shelf.scan_interval_unit)}</select></label>
         </div>
         <div class="shelf-privacy">
-          <label class="check-row"><input class="hidden-toggle" type="checkbox" ${shelf.is_hidden ? "checked" : ""}><span>隐藏书架</span></label>
           <label class="password-control">
             <span>四位访问密码${shelf.pin_configured ? '<em>已设置</em>' : ""}</span>
             <input class="pin-input" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="new-password" placeholder="${shelf.pin_configured ? "输入新密码可直接修改" : "输入四位数字即可设置"}">
@@ -258,6 +271,7 @@ function renderBooks() {
           <div class="book-title-line"><h3 title="${escapeHtml(book.title)}">${escapeHtml(book.title)}</h3><span>${escapeHtml(extent)}</span></div>
           <p>${escapeHtml(book.author || "作者未知")} · <code>${escapeHtml(filename)}</code></p>
           <span class="book-cover-source">${escapeHtml(coverSourceLabel(book.cover_source, book.cover_status))}</span>
+          ${book.shelf_visible ? "" : '<span class="book-hidden-badge">已从书架隐藏</span>'}
           ${warning ? `<small class="book-warning">${escapeHtml(warning)}</small>` : ""}
         </div>
         <div class="book-strategy">
@@ -265,6 +279,7 @@ function renderBooks() {
           <strong>${escapeHtml(splitModeLabel(book.chapter_split_mode, book.format))}</strong>
           ${book.format === "pdf" ? `<small>PDF 不参与章节体系</small>` : ""}
           <div class="book-row-actions">
+            <button class="button button-quiet toggle-shelf-visibility" type="button">${book.shelf_visible ? "从书架隐藏" : "恢复到书架"}</button>
             <button class="button button-quiet edit-book" type="button">编辑书籍</button>
             ${book.format === "pdf" ? "" : `<button class="button button-outline configure-split" type="button">拆分设置</button>`}
           </div>
@@ -476,63 +491,49 @@ $("#storage-form").addEventListener("submit", async (event) => {
 $("#add-shelf-button").addEventListener("click", () => {
   if (!state.overview?.storage_locations.length) { toast("请先登记一个存储位置", "error"); return; }
   $("#shelf-error").textContent = "";
-  syncShelfRootMode();
-  syncShelfPrivacyMode();
   $("#shelf-dialog").showModal();
 });
-function syncShelfRootMode() {
-  const useRoot = $("#shelf-root").checked;
-  const folder = $("#shelf-folder");
-  folder.disabled = useRoot;
-  if (useRoot) {
-    if (folder.value && folder.value !== ".") folder.dataset.previousValue = folder.value;
-    folder.value = ".";
-  } else {
-    folder.value = folder.dataset.previousValue || "";
-  }
-}
-$("#shelf-root").addEventListener("change", syncShelfRootMode);
-function syncShelfPrivacyMode() {
-  const hidden = $("#shelf-hidden").checked;
-  const pin = $("#shelf-pin");
-  pin.required = hidden;
-  pin.placeholder = hidden ? "必填；请输入四位数字" : "可选；设置后 App 会要求输入";
-}
-$("#shelf-hidden").addEventListener("change", syncShelfPrivacyMode);
-$("#shelf-name").addEventListener("input", (event) => {
-  const folder = $("#shelf-folder");
-  if ($("#shelf-root").checked) return;
-  if (folder.dataset.edited === "true") return;
-  folder.value = event.target.value.trim().replace(/[\\/:*?"<>|\s]+/g, "-").replace(/^-+|-+$/g, "");
-});
-$("#shelf-folder").addEventListener("input", (event) => { event.target.dataset.edited = "true"; });
 $("#shelf-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
+  const values = {
+    name: $("#shelf-name").value.trim(),
+    storage_location_id: $("#shelf-location").value,
+    auto_scan_enabled: $("#shelf-auto").checked,
+    intervalValue: Number($("#shelf-interval").value),
+    intervalUnit: $("#shelf-interval-unit").value,
+    pin: $("#shelf-pin").value || null,
+  };
   $("#shelf-error").textContent = "";
+  const intervalValue = values.intervalValue;
+  if (!Number.isFinite(intervalValue) || intervalValue < 1) {
+    $("#shelf-error").textContent = "扫描间隔必须大于等于 1";
+    return;
+  }
+  if (values.pin && !/^\d{4}$/.test(values.pin)) {
+    $("#shelf-error").textContent = "访问密码必须是四位数字";
+    return;
+  }
+  // 点击“创建并扫描”后立即关闭卡片，首次扫描在后台继续执行
+  $("#shelf-dialog").close();
+  form.reset();
+  toast("书架创建中，正在执行首次扫描…");
   try {
-    if ($("#shelf-hidden").checked && !/^\d{4}$/.test($("#shelf-pin").value)) {
-      throw new Error("隐藏书架必须设置四位数字访问密码");
-    }
     await api("/shelves", { method: "POST", body: JSON.stringify({
-      name: $("#shelf-name").value,
-      storage_location_id: $("#shelf-location").value,
-      relative_path: $("#shelf-folder").value,
-      auto_scan_enabled: $("#shelf-auto").checked,
-      scan_interval_minutes: Number($("#shelf-interval").value),
+      name: values.name,
+      storage_location_id: values.storage_location_id,
+      relative_path: ".",
+      auto_scan_enabled: values.auto_scan_enabled,
+      scan_interval_value: intervalValue,
+      scan_interval_unit: values.intervalUnit,
       scan_after_create: true,
-      is_hidden: $("#shelf-hidden").checked,
-      access_pin: $("#shelf-pin").value || null,
+      access_pin: values.pin,
     }) });
-    $("#shelf-dialog").close();
-    form.reset();
-    $("#shelf-folder").dataset.edited = "false";
-    delete $("#shelf-folder").dataset.previousValue;
-    syncShelfRootMode();
-    syncShelfPrivacyMode();
     toast("书架已创建并完成首次扫描");
-    await loadOverview();
-  } catch (error) { $("#shelf-error").textContent = error.message; }
+  } catch (error) {
+    toast(error.message, "error");
+  }
+  await loadOverview().catch(() => {});
 });
 
 $("#shelf-list").addEventListener("click", async (event) => {
@@ -553,16 +554,15 @@ $("#shelf-list").addEventListener("click", async (event) => {
       await loadShelfBooks(shelfId);
       $("#books").scrollIntoView({ behavior: "smooth", block: "start" });
     } else if (button.classList.contains("save-shelf")) {
-      const hidden = card.querySelector(".hidden-toggle").checked;
       const pin = card.querySelector(".pin-input").value;
-      const pinConfigured = card.dataset.pinConfigured === "true";
       const clearPin = card.querySelector(".clear-pin-toggle")?.checked === true;
       if (pin && !/^\d{4}$/.test(pin)) throw new Error("访问密码必须是四位数字");
-      if (hidden && (clearPin || (!pinConfigured && !pin))) throw new Error("隐藏书架必须保留四位数字访问密码");
+      const intervalValue = Number(card.querySelector(".interval-input").value);
+      if (!Number.isFinite(intervalValue) || intervalValue < 1) throw new Error("扫描间隔必须大于等于 1");
       const payload = {
         auto_scan_enabled: card.querySelector(".auto-toggle").checked,
-        scan_interval_minutes: Number(card.querySelector(".interval-input").value),
-        is_hidden: hidden,
+        scan_interval_value: intervalValue,
+        scan_interval_unit: card.querySelector(".interval-unit").value,
       };
       if (clearPin) payload.access_pin = null;
       else if (pin) payload.access_pin = pin;
@@ -798,10 +798,26 @@ $("#edit-book-form").addEventListener("submit", async (event) => {
   }
 });
 
-$("#book-list").addEventListener("click", (event) => {
+$("#book-list").addEventListener("click", async (event) => {
   const retry = event.target.closest(".retry-books");
   if (retry) {
     loadShelfBooks(state.selectedShelfId);
+    return;
+  }
+  const visibilityButton = event.target.closest(".toggle-shelf-visibility");
+  if (visibilityButton) {
+    const row = visibilityButton.closest(".book-row");
+    const book = state.books.find((item) => item.id === row.dataset.bookId);
+    if (!book) return;
+    const next = !book.shelf_visible;
+    try {
+      await api(`/books/${book.id}/shelf-visibility`, {
+        method: "PATCH",
+        body: JSON.stringify({ shelf_visible: next }),
+      });
+      toast(next ? "书籍已恢复到书架" : "书籍已从书架隐藏，读者将看不到它");
+      await loadShelfBooks(state.selectedShelfId);
+    } catch (error) { toast(error.message, "error"); }
     return;
   }
   const editButton = event.target.closest(".edit-book");

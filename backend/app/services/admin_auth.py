@@ -7,7 +7,6 @@ import json
 import os
 import secrets
 import threading
-import time
 from pathlib import Path
 from typing import Literal
 
@@ -131,9 +130,9 @@ def update_password(current_password: str, new_password: str, settings: Settings
 
 
 def create_session_token(settings: Settings, scope: SessionScope) -> str:
-    expires = int(time.time()) + max(settings.admin_session_hours, 1) * 3600
+    # 会话不设有效时限：仅当修改管理密码（轮换会话密钥）后全部失效。
     nonce = secrets.token_urlsafe(18)
-    payload = f"v1.{scope}.{expires}.{nonce}"
+    payload = f"v1.{scope}.{nonce}"
     signature = hmac.new(_session_key(settings), payload.encode(), hashlib.sha256).hexdigest()
     return f"{payload}.{signature}"
 
@@ -142,18 +141,12 @@ def valid_session(token: str | None, settings: Settings, scope: SessionScope) ->
     if not token or not password_is_configured(settings):
         return False
     parts = token.split(".")
-    if len(parts) != 5:
+    if len(parts) != 4:
         return False
-    version, token_scope, expires_text, nonce, signature = parts
+    version, token_scope, nonce, signature = parts
     if version != "v1" or token_scope != scope or not nonce:
         return False
-    try:
-        expires = int(expires_text)
-    except ValueError:
-        return False
-    if expires < int(time.time()):
-        return False
-    payload = ".".join(parts[:4])
+    payload = ".".join(parts[:3])
     expected = hmac.new(_session_key(settings), payload.encode(), hashlib.sha256).hexdigest()
     return hmac.compare_digest(signature, expected)
 
@@ -194,10 +187,12 @@ def require_mobile_session(
     request: Request,
     settings: Settings = Depends(get_settings),
 ) -> None:
-    """Validate the short-lived bearer session used by the reading app.
+    """Validate the bearer session used by the reading app.
 
     The management password is exchanged once at the login endpoint. Ordinary
     book, file and progress requests only carry this signed session token.
+    Sessions do not expire by time; changing the management password rotates
+    the signing key and invalidates every existing session.
     """
     authorization = request.headers.get("Authorization", "")
     scheme, _, token = authorization.partition(" ")

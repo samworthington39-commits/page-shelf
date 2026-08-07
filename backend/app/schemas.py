@@ -52,14 +52,21 @@ class ShelfUnlockRequest(BaseModel):
     pin: str = Field(pattern=r"^\d{4}$")
 
 
+class RecentReadingView(BaseModel):
+    book: BookSummary
+    progression: float = Field(ge=0, le=1)
+    locator_json: dict[str, Any] | None
+    updated_at: datetime
+
+
 class PublicShelfView(BaseModel):
     id: str
     name: str
-    is_hidden: bool
     locked: bool
     book_count: int
     total_bytes: int
     books: list[BookSummary]
+    recent_reading: list[RecentReadingView] = Field(default_factory=list)
 
 
 class BookDetail(BookSummary):

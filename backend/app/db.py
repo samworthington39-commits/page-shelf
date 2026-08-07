@@ -41,7 +41,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 
 
 def initialize_database() -> None:
-    """Create the schema and apply the small in-place migration used by pre-shelf databases."""
+    """Create the schema and apply the in-place migrations used by older databases."""
     Base.metadata.create_all(bind=engine)
     inspector = inspect(engine)
     if "books" not in inspector.get_table_names():
@@ -51,17 +51,30 @@ def initialize_database() -> None:
         with engine.begin() as connection:
             connection.exec_driver_sql("ALTER TABLE books ADD COLUMN shelf_id VARCHAR(36)")
             connection.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_books_shelf_id ON books (shelf_id)")
+    book_shelf_columns = {column["name"] for column in inspect(engine).get_columns("books")}
+    if "shelf_visible" not in book_shelf_columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE books ADD COLUMN shelf_visible BOOLEAN NOT NULL DEFAULT 1"
+            )
     if "shelves" in inspector.get_table_names():
         shelf_columns = {column["name"] for column in inspector.get_columns("shelves")}
         with engine.begin() as connection:
-            if "is_hidden" not in shelf_columns:
-                connection.exec_driver_sql(
-                    "ALTER TABLE shelves ADD COLUMN is_hidden BOOLEAN NOT NULL DEFAULT 0"
-                )
             if "access_pin_hash" not in shelf_columns:
                 connection.exec_driver_sql(
                     "ALTER TABLE shelves ADD COLUMN access_pin_hash VARCHAR(255)"
                 )
+            if "scan_interval_unit" not in shelf_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE shelves ADD COLUMN scan_interval_unit VARCHAR(8) NOT NULL DEFAULT 'minutes'"
+                )
+            # Older releases stored whole-shelf visibility in a required
+            # ``is_hidden`` column. Visibility is now controlled per book, so
+            # leaving the legacy column in place makes every new insert fail:
+            # the ORM no longer supplies a value and the old column has no
+            # database default.
+            if "is_hidden" in shelf_columns:
+                connection.exec_driver_sql("ALTER TABLE shelves DROP COLUMN is_hidden")
     columns = {column["name"] for column in inspect(engine).get_columns("books")}
     book_additions = {
         "chapter_split_mode": "VARCHAR(24) NOT NULL DEFAULT 'auto'",

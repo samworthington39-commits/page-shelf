@@ -25,12 +25,16 @@ def test_reader_page_and_assets_are_served_with_security_headers(client):
     assert "/toc" in script.text
     assert "/progress/" in script.text
     assert "scheduleAutoAdvance" in script.text
+    assert "appendTextChapter" in script.text
+    assert "recent_reading" in script.text
     assert "autoAdvance: true" in script.text
     assert 'data-theme="sepia"' not in page.text
     assert 'data-theme-choice="sepia"' in page.text
     assert ".toc-drawer.open" in styles.text
     assert ".reader-toolbar" in styles.text
     assert ".chapter-content" in styles.text
+    assert ".chapter-section + .chapter-section" in styles.text
+    assert ".recent-reading" in styles.text
 
 
 def test_reader_page_does_not_require_a_bearer_session(client):

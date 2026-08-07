@@ -29,12 +29,13 @@ TXT、EPUB、MOBI、PDF 文件；网页阅读器提供免安装的纵向阅读�
 
 ### 服务端与网页
 
-- 管理后台：登记授权存储位置，创建公开、隐藏或 PIN 保护书架，手动或定时扫描书籍；支持修改书名、
-  作者、封面和单书章节拆分策略。
+- 管理后台：登记授权存储位置，创建公开或 PIN 保护书架，手动或定时扫描书籍；支持修改书名、
+  作者、封面、单书章节拆分策略，以及将单本书从书架中隐藏或恢复。
 - 网页阅读器：访问 `/reader` 即可登录，支持书架切换、书名/作者搜索、受保护书架解锁和阅读进度
   同步。TXT/EPUB/MOBI 使用纵向滚动并在章末自动续接，PDF 保留原版页面和书签目录；主题、字体和字号保存
   在当前浏览器。
-- 格式处理：TXT 支持多种章节规则与固定长度回退，EPUB 按内部导航和 spine 顺序解析；未加密的
+- 格式处理：TXT 支持多种章节规则与固定长度回退，并提供独立的“古文拆分”方式（识别卷、回、则、出、
+  品、经书篇名、纪传表志与“其一/其二”等古籍体例）；EPUB 按内部导航和 spine 顺序解析；未加密的
   MOBI 在服务端解包为可重排章节，保留可用的目录、书名、作者和内嵌封面；PDF 保留固定版式、页数和
   原生书签，不执行 OCR。
 - 文件与安全：原始书籍只读挂载，不因移除书架或客户端缓存而删除；文件下载支持 Range、ETag 和
@@ -148,8 +149,9 @@ http://192.168.1.10:8000
 https://reader.example.com
 ```
 
-局域网地址允许 HTTP；公网域名必须使用 HTTPS。App 会验证 API 主版本，然后使用管理密码换取短期
-Bearer 会话。密码不持久化，会话令牌使用 Android Keystore 加密保存。
+局域网地址允许 HTTP；公网域名必须使用 HTTPS。App 会验证 API 主版本，然后使用管理密码换取
+Bearer 会话。密码不持久化，会话令牌使用 Android Keystore 加密保存；会话不设有效时限，仅在服务器
+修改管理密码后全部失效。
 
 从源码构建：
 
@@ -192,7 +194,6 @@ GIT_LFS_SKIP_SMUDGE=1 git clone <your-repository-url>
 | `ADMIN_PASSWORD` | `112233` | 仅用于首次初始化；已有凭据文件时不会覆盖后台已修改的密码 |
 | `ADMIN_SESSION_SECRET` | 自动生成 | 可选的首次初始化会话密钥；留空时生成安全随机值 |
 | `ADMIN_CREDENTIALS_PATH` | Docker 中为 `/data/admin_credentials.json` | 持久化的密码哈希和会话密钥文件 |
-| `ADMIN_SESSION_HOURS` | `24` | 会话有效小时数 |
 | `LIBRARY_PATH` | Docker 中为 `/library` | 默认书库路径 |
 | `DATABASE_URL` | Docker 中为 `sqlite:////data/bookshelf.db` | SQLAlchemy 数据库 URL |
 | `COVER_PATH` | Docker 中为 `/data/covers` | 派生封面目录 |

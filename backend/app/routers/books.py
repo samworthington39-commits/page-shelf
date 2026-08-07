@@ -51,10 +51,8 @@ def list_books(session: Session = Depends(get_db)) -> list[Book]:
             select(Book)
             .outerjoin(Shelf)
             .where(
-                or_(
-                    Book.shelf_id.is_(None),
-                    (Shelf.is_hidden.is_(False) & Shelf.access_pin_hash.is_(None)),
-                )
+                Book.shelf_visible.is_(True),
+                or_(Book.shelf_id.is_(None), Shelf.access_pin_hash.is_(None)),
             )
             .order_by(Book.title, Book.id)
         )

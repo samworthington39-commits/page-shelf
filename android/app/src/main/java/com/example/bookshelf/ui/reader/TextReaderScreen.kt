@@ -192,6 +192,7 @@ fun TextReaderScreen(viewModel: TextReaderViewModel, onBack: () -> Unit, onOpenN
                         preferences = state.preferences,
                         colors = palette,
                         narrationHighlight = narrationHighlight,
+                        controlsVisible = controlsVisible,
                         onToggleControls = { controlsVisible = !controlsVisible },
                         onPositionChanged = viewModel::onPositionChanged,
                         onVisiblePositionChanged = { chapterIndex, charOffset ->
@@ -430,49 +431,54 @@ private fun ReaderTopBar(
 ) {
     val download = state.download
     val downloading = download?.status in setOf(DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING)
-    Row(
-        Modifier.fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
-            .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Surface(
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        contentColor = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回书架并保存进度")
-        }
-        Text(
-            state.book?.title.orEmpty(),
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            style = MaterialTheme.typography.titleMedium,
-        )
-        IconButton(onClick = onTheme) {
-            Icon(Icons.Outlined.Lightbulb, contentDescription = "切换明暗模式")
-        }
-        IconButton(
-            onClick = if (downloading) onPause else onSave,
-            enabled = download?.status != DownloadStatus.DOWNLOADED || download?.isPermanent != true,
+        Row(
+            Modifier.fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (downloading) {
-                    CircularProgressIndicator(
-                        progress = { download?.fraction ?: 0f },
-                        modifier = Modifier.fillMaxSize().padding(6.dp),
-                        strokeWidth = 2.dp,
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回书架并保存进度")
+            }
+            Text(
+                state.book?.title.orEmpty(),
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            IconButton(onClick = onTheme) {
+                Icon(Icons.Outlined.Lightbulb, contentDescription = "切换明暗模式")
+            }
+            IconButton(
+                onClick = if (downloading) onPause else onSave,
+                enabled = download?.status != DownloadStatus.DOWNLOADED || download?.isPermanent != true,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (downloading) {
+                        CircularProgressIndicator(
+                            progress = { download?.fraction ?: 0f },
+                            modifier = Modifier.fillMaxSize().padding(6.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                    Icon(
+                        Icons.Outlined.Download,
+                        contentDescription = when {
+                            download?.status == DownloadStatus.DOWNLOADED && download?.isPermanent == true -> "已下载到本地"
+                            downloading -> "暂停下载，已完成 ${((download?.fraction ?: 0f) * 100).roundToInt()}%"
+                            else -> "保存整本书到本地"
+                        },
                     )
                 }
-                Icon(
-                    Icons.Outlined.Download,
-                    contentDescription = when {
-                        download?.status == DownloadStatus.DOWNLOADED && download?.isPermanent == true -> "已下载到本地"
-                        downloading -> "暂停下载，已完成 ${((download?.fraction ?: 0f) * 100).roundToInt()}%"
-                        else -> "保存整本书到本地"
-                    },
-                )
             }
-        }
-        IconButton(onClick = onSettings) {
-            Icon(Icons.Outlined.Settings, contentDescription = "阅读设置")
+            IconButton(onClick = onSettings) {
+                Icon(Icons.Outlined.Settings, contentDescription = "阅读设置")
+            }
         }
     }
 }
@@ -486,37 +492,42 @@ private fun ReaderBottomBar(
     onOpenToc: () -> Unit,
 ) {
     var slider by remember(state.chapter?.id, state.charOffset) { mutableFloatStateOf(state.chapterProgress.toFloat()) }
-    Column(
-        Modifier.fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+    Surface(
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        contentColor = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            Modifier.fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
-            TextButton(onClick = onOpenToc) {
-                Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null)
-                Text("目录", modifier = Modifier.padding(start = 6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onOpenToc) {
+                    Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null)
+                    Text("目录", modifier = Modifier.padding(start = 6.dp))
+                }
+                Text(
+                    "${state.chapter?.title.orEmpty()} · ${(slider * 100).roundToInt()}%",
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    textAlign = TextAlign.End,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
-            Text(
-                "${state.chapter?.title.orEmpty()} · ${(slider * 100).roundToInt()}%",
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                textAlign = TextAlign.End,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onPrevious, enabled = state.chapterIndex > 0) { Text("上一章") }
-            Slider(
-                value = slider,
-                onValueChange = { slider = it },
-                onValueChangeFinished = { onSeek(slider) },
-                modifier = Modifier.weight(1f).semantics { contentDescription = "当前章节阅读进度" },
-            )
-            TextButton(onClick = onNext, enabled = state.chapterIndex < state.toc.lastIndex) { Text("下一章") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onPrevious, enabled = state.chapterIndex > 0) { Text("上一章") }
+                Slider(
+                    value = slider,
+                    onValueChange = { slider = it },
+                    onValueChangeFinished = { onSeek(slider) },
+                    modifier = Modifier.weight(1f).semantics { contentDescription = "当前章节阅读进度" },
+                )
+                TextButton(onClick = onNext, enabled = state.chapterIndex < state.toc.lastIndex) { Text("下一章") }
+            }
         }
     }
 }

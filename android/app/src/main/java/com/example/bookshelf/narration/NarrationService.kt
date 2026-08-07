@@ -13,6 +13,7 @@ import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.os.IBinder
+import android.os.SystemClock
 import android.util.Log
 import com.example.bookshelf.BuildConfig
 import com.example.bookshelf.MainActivity
@@ -28,6 +29,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -44,6 +46,7 @@ class NarrationService : Service() {
     private lateinit var audioPlayer: NarrationAudioPlayer
     private var playbackJob: Job? = null
     private var chapterNavigationJob: Job? = null
+    private var sleepTimerJob: Job? = null
     private val playbackMutex = Mutex()
     private var engine: SherpaMatchaEngine? = null
     private var generation = 0
@@ -85,6 +88,7 @@ class NarrationService : Service() {
             ACTION_START -> {
                 chapterNavigationJob?.cancel()
                 chapterNavigationJob = null
+                cancelSleepTimer()
                 val request = intent.toNarrationRequest() ?: return START_NOT_STICKY
                 val current = NarrationRuntime.state.value
                 NarrationRuntime.state.value = current.copy(
@@ -100,6 +104,8 @@ class NarrationService : Service() {
                     charOffset = request.charOffset,
                     currentTextEndOffset = request.charOffset,
                     currentText = "",
+                    sleepTimer = null,
+                    sleepTimerEndsAtElapsedRealtimeMs = null,
                     error = null,
                 )
                 mediaSession.isActive = true
@@ -132,6 +138,12 @@ class NarrationService : Service() {
                     "Player speed changed: playbackSpeed=$playbackSpeed " +
                         "pitch=1.0 positionMs=${audioPlayer.currentPositionMs()}",
                 )
+            }
+            ACTION_SET_SLEEP_TIMER -> {
+                val timer = intent.getStringExtra(EXTRA_SLEEP_TIMER)
+                    ?.takeIf(String::isNotBlank)
+                    ?.let { runCatching { NarrationSleepTimer.valueOf(it) }.getOrNull() }
+                setSleepTimer(timer)
             }
         }
         return START_NOT_STICKY
@@ -198,6 +210,7 @@ class NarrationService : Service() {
                 }
             }
 
+            var stoppedBySleepTimer = false
             coroutineScope {
                 val queueHandle = queue.start(this, source, selectedVoice)
                 for (queued in queueHandle.segments) {
@@ -239,18 +252,30 @@ class NarrationService : Service() {
                             chapterBody = segment.chapterBody,
                             chapterCount = toc.size,
                         )
+                        if (NarrationRuntime.state.value.sleepTimer == NarrationSleepTimer.END_OF_CHAPTER) {
+                            stoppedBySleepTimer = true
+                            queueHandle.producer.cancel()
+                            break
+                        }
                     }
                 }
                 queueHandle.producer.join()
             }
-            if (token == generation) finishPlayback(NarrationStatus.COMPLETED)
+            if (token == generation) {
+                finishPlayback(
+                    if (stoppedBySleepTimer) NarrationStatus.IDLE else NarrationStatus.COMPLETED,
+                )
+            }
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
             if (token == generation) {
+                cancelSleepTimer()
                 publish(
                     NarrationRuntime.state.value.copy(
                         status = NarrationStatus.ERROR,
+                        sleepTimer = null,
+                        sleepTimerEndsAtElapsedRealtimeMs = null,
                         error = error.message?.takeIf(String::isNotBlank) ?: "朗读失败",
                     ),
                 )
@@ -313,6 +338,30 @@ class NarrationService : Service() {
                 status = if (state.currentText.isBlank()) NarrationStatus.PREPARING else NarrationStatus.PLAYING,
             ),
         )
+    }
+
+    private fun setSleepTimer(timer: NarrationSleepTimer?) {
+        val state = NarrationRuntime.state.value
+        if (!state.isActive) return
+        cancelSleepTimer()
+        val endsAt = timer?.durationMillis?.let { duration ->
+            SystemClock.elapsedRealtime() + duration
+        }
+        publish(
+            state.copy(
+                sleepTimer = timer,
+                sleepTimerEndsAtElapsedRealtimeMs = endsAt,
+            ),
+        )
+        if (endsAt != null) {
+            sleepTimerJob = serviceScope.launch {
+                delay((endsAt - SystemClock.elapsedRealtime()).coerceAtLeast(0L))
+                val latest = NarrationRuntime.state.value
+                if (latest.isActive && latest.sleepTimerEndsAtElapsedRealtimeMs == endsAt) {
+                    stopNarration()
+                }
+            }
+        }
     }
 
     private fun restartAtCurrentPosition() {
@@ -381,6 +430,7 @@ class NarrationService : Service() {
 
     private fun stopNarration() {
         generation++
+        cancelSleepTimer()
         chapterNavigationJob?.cancel()
         chapterNavigationJob = null
         audioPlayer.stop()
@@ -390,6 +440,8 @@ class NarrationService : Service() {
             status = NarrationStatus.IDLE,
             currentTextEndOffset = NarrationRuntime.state.value.charOffset,
             currentText = "",
+            sleepTimer = null,
+            sleepTimerEndsAtElapsedRealtimeMs = null,
             error = null,
         )
         updateMediaSession()
@@ -398,9 +450,22 @@ class NarrationService : Service() {
     }
 
     private fun finishPlayback(status: NarrationStatus) {
-        publish(NarrationRuntime.state.value.copy(status = status, currentText = ""))
+        cancelSleepTimer()
+        publish(
+            NarrationRuntime.state.value.copy(
+                status = status,
+                currentText = "",
+                sleepTimer = null,
+                sleepTimerEndsAtElapsedRealtimeMs = null,
+            ),
+        )
         finishForegroundPlayback()
         stopSelf()
+    }
+
+    private fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
     }
 
     private fun finishForegroundPlayback() {
@@ -529,6 +594,7 @@ class NarrationService : Service() {
 
     override fun onDestroy() {
         generation++
+        cancelSleepTimer()
         chapterNavigationJob?.cancel()
         audioPlayer.stop()
         playbackJob?.cancel()
@@ -548,6 +614,7 @@ class NarrationService : Service() {
         const val ACTION_NEXT_CHAPTER = "com.example.bookshelf.narration.NEXT_CHAPTER"
         const val ACTION_SET_VOICE = "com.example.bookshelf.narration.SET_VOICE"
         const val ACTION_SET_PLAYBACK_SPEED = "com.example.bookshelf.narration.SET_PLAYBACK_SPEED"
+        const val ACTION_SET_SLEEP_TIMER = "com.example.bookshelf.narration.SET_SLEEP_TIMER"
         const val EXTRA_BOOK_ID = "book_id"
         const val EXTRA_BOOK_TITLE = "book_title"
         const val EXTRA_BOOK_FORMAT = "book_format"
@@ -558,6 +625,7 @@ class NarrationService : Service() {
         const val EXTRA_CHAR_OFFSET = "char_offset"
         const val EXTRA_VOICE = "voice"
         const val EXTRA_PLAYBACK_SPEED = "playback_speed"
+        const val EXTRA_SLEEP_TIMER = "sleep_timer"
         private const val CHANNEL_ID = "narration_playback"
         private const val NOTIFICATION_ID = 4102
         private const val TAG = "PageShelfTTS"

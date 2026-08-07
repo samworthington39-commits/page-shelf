@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Literal
 
 
-SplitMode = Literal["auto", "strict", "expanded", "fixed", "single", "source"]
-SUPPORTED_SPLIT_MODES = {"auto", "strict", "expanded", "fixed", "single", "source"}
+SplitMode = Literal["auto", "strict", "classical", "expanded", "fixed", "single", "source"]
+SUPPORTED_SPLIT_MODES = {"auto", "strict", "classical", "expanded", "fixed", "single", "source"}
 DEFAULT_SEGMENT_SIZE = 12_000
 MIN_SEGMENT_SIZE = 1_000
 MAX_SEGMENT_SIZE = 100_000
@@ -25,7 +25,7 @@ _TRAILING_SEPARATOR = r"(?:\s*[:：、,，.．·|\-—–]+\s*|\s+)"
 
 _CHINESE_CHAPTER = re.compile(
     rf"^(?:第|弟)?\s*(?P<number>{_NUMBER})\s*(?:(?P<letter>[A-Za-z])|[-.]\s*(?P<secondary>\d+))?\s*"
-    rf"(?P<kind>章|章节|回|張)(?P<rest>.*)$",
+    rf"(?P<kind>章|章节|回|则|出|品|張|节|節)(?P<rest>.*)$",
     re.IGNORECASE,
 )
 _CHINESE_STRUCTURE = re.compile(
@@ -45,6 +45,14 @@ _ENGLISH_STRUCTURE = re.compile(
     rf"^(?P<kind>part|book)\s+(?P<number>\d+|{_ROMAN}|one|two|three|four|five|six|seven|eight|nine|ten)\b(?P<rest>.*)$",
     re.IGNORECASE,
 )
+_CLASSICAL_VOLUME = re.compile(
+    rf"^(?:(?P<position>上|中|下)卷|卷(?P<position2>上|中|下)|"
+    rf"卷之?(?P<number>{_NUMBER})|卷第(?P<number2>{_NUMBER}))(?P<rest>.*)$",
+    re.IGNORECASE,
+)
+_CLASSICAL_PIAN = re.compile(rf"^(?P<name>[^第\s0-9A-Za-z]{{2,12}})第(?P<number>{_NUMBER})$")
+_CLASSICAL_HISTORY = re.compile(r"^(?P<name>[一-龥]{2,12})(?P<kind>本纪|世家|列传|表|志)$")
+_CLASSICAL_QI = re.compile(r"^其(?P<number>[零〇○一二两三四五六七八九十百千万]+)$")
 _SPECIAL = re.compile(
     r"^(?P<kind>序章|楔子|引子|引言|前言|序言|开篇|序幕|前传|正文|终章|尾声|后记|附录|"
     r"番外|番外篇|外传|特别篇|间章|幕间|插曲|补遗|作者的话|作者有话说|完本感言|后日谈)"
@@ -178,9 +186,10 @@ def _clean_title(raw: str) -> str:
     """Keep the historical normalized title while original_title preserves exact display text."""
     text = unicodedata.normalize("NFKC", raw).strip()
     text = re.sub(r"^(第|弟)\s+", r"\1", text)
-    text = re.sub(rf"^((?:第|弟)?\s*{_NUMBER})\s+(章|章节|回|卷|部|篇|集|册|幕|节)", r"\1\2", text)
+    text = re.sub(rf"^((?:第|弟)?\s*{_NUMBER})\s+(章|章节|回|则|出|品|卷|部|篇|集|册|幕|节)", r"\1\2", text)
     text = re.sub(_TRAILING_SEPARATOR, " ", text, count=1) if re.match(
-        rf"^(?:(?:第|弟)?\s*{_NUMBER}\s*(?:章|章节|回|卷|部|篇|集|册|幕|节)|"
+        rf"^(?:(?:第|弟)?\s*{_NUMBER}\s*(?:章|章节|回|则|出|品|卷|部|篇|集|册|幕|节)|"
+        rf"(?:卷之?|卷第?)\s*{_NUMBER}|"
         rf"(?:chapter|chap\.?|ch\.?|part|book)\s+(?:\d+|{_ROMAN}))",
         text,
         re.IGNORECASE,
@@ -224,6 +233,36 @@ def _candidate(line: str, start: int, end: int) -> _Candidate | None:
         return _Candidate(start, end, original, _clean_title(original), "special", "special", number,
                           special_type=special.group("kind"))
 
+    classical_volume = _CLASSICAL_VOLUME.fullmatch(normalized_line)
+    if classical_volume:
+        groups = classical_volume.groupdict()
+        number_text = groups.get("number") or groups.get("number2") or ""
+        if number_text:
+            number = _parse_number(number_text)
+            if number is None:
+                return None
+        else:
+            number = {"上": 1, "中": 2, "下": 3}[groups.get("position") or groups.get("position2")]
+        rest = groups.get("rest") or ""
+        return _Candidate(start, end, original, _clean_title(original), "classical-volume", "volume",
+                          number, None, _suffix_order(rest))
+
+    classical_pian = _CLASSICAL_PIAN.fullmatch(normalized_line)
+    if classical_pian and classical_pian.group("name") not in {"正文", "目录", "后记"}:
+        number = _parse_number(classical_pian.group("number"))
+        if number is not None:
+            return _Candidate(start, end, original, original, "classical-pian", "chapter", number)
+
+    classical_history = _CLASSICAL_HISTORY.fullmatch(normalized_line)
+    if classical_history:
+        return _Candidate(start, end, original, original, "classical-history", "chapter")
+
+    classical_qi = _CLASSICAL_QI.fullmatch(normalized_line)
+    if classical_qi:
+        number = _parse_number(classical_qi.group("number"))
+        if number is not None:
+            return _Candidate(start, end, original, original, "classical-qi", "chapter", number)
+
     numeric = _NUMERIC.fullmatch(normalized_line)
     if numeric:
         return _Candidate(start, end, original, original, "numeric", "chapter",
@@ -245,6 +284,17 @@ def _select_candidates(candidates: list[_Candidate], mode: SplitMode) -> list[_C
     strict = [candidate for candidate in candidates if candidate.style.startswith("chapter-")]
     if mode == "strict":
         return strict
+    if mode == "classical":
+        classical_styles = {
+            "chapter-cn",
+            "structure-cn",
+            "section-cn",
+            "classical-volume",
+            "classical-pian",
+            "classical-history",
+            "classical-qi",
+        }
+        return [candidate for candidate in candidates if candidate.style in classical_styles]
     counts = Counter(candidate.style for candidate in candidates)
     special_counts = Counter(candidate.special_type for candidate in candidates if candidate.style == "special")
     numeric_ok = _numeric_candidates_are_consistent(candidates)
@@ -253,6 +303,9 @@ def _select_candidates(candidates: list[_Candidate], mode: SplitMode) -> list[_C
     # Auto mode is conservative about one-off structural/special lines when a dominant chapter style exists.
     selected = list(strict)
     selected.extend(candidate for candidate in candidates if candidate.style.startswith("structure-")
+                    and (counts[candidate.style] >= 2 or not strict))
+    selected.extend(candidate for candidate in candidates
+                    if candidate.style in {"classical-volume", "classical-pian", "classical-history", "classical-qi"}
                     and (counts[candidate.style] >= 2 or not strict))
     selected.extend(candidate for candidate in candidates if candidate.style == "section-cn"
                     and counts[candidate.style] >= 2)

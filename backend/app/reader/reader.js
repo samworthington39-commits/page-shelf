@@ -31,6 +31,7 @@ const state = {
   toc: [],
   chapterIndex: 0,
   currentChapter: null,
+  textChapters: new Map(),
   pdfPage: 1,
   pdfPageCount: 0,
   pdfObjectUrl: null,
@@ -307,6 +308,7 @@ function cleanupReader() {
   clearAutoAdvance();
   state.currentBook = null;
   state.currentChapter = null;
+  state.textChapters.clear();
   state.readerKind = null;
   state.toc = [];
   state.lastSavedLocator = "";
@@ -501,10 +503,15 @@ function renderActiveShelf() {
     return;
   }
 
+  const content = document.createDocumentFragment();
+  if (!query && shelf.recent_reading?.length) {
+    content.append(createRecentReadingSection(shelf));
+  }
   const grid = document.createElement("div");
   grid.className = "book-grid";
   books.forEach((book) => grid.append(createBookCard(book, shelf)));
-  elements.libraryContent.replaceChildren(grid);
+  content.append(grid);
+  elements.libraryContent.replaceChildren(content);
 }
 
 function createLockedShelf(shelf) {
@@ -620,6 +627,85 @@ function createBookCard(book, shelf) {
   return button;
 }
 
+function createRecentReadingSection(shelf) {
+  const section = document.createElement("section");
+  section.className = "recent-reading";
+  section.setAttribute("aria-labelledby", "recent-reading-title");
+
+  const heading = document.createElement("div");
+  heading.className = "recent-reading-heading";
+  const label = document.createElement("p");
+  label.className = "section-label";
+  label.textContent = "CONTINUE READING";
+  const title = document.createElement("h3");
+  title.id = "recent-reading-title";
+  title.textContent = "最近阅读";
+  const scope = document.createElement("span");
+  scope.textContent = `仅显示「${shelf.name}」中的记录`;
+  const headingCopy = document.createElement("div");
+  headingCopy.append(label, title);
+  heading.append(headingCopy, scope);
+
+  const list = document.createElement("div");
+  list.className = "recent-reading-list";
+  shelf.recent_reading.forEach((entry, index) => {
+    const { book } = entry;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "recent-reading-card";
+    button.disabled = !book.can_open;
+    button.setAttribute(
+      "aria-label",
+      `${book.title}，阅读进度 ${Math.round(clamp(entry.progression, 0, 1) * 100)}%，继续阅读`,
+    );
+
+    const order = document.createElement("span");
+    order.className = "recent-reading-order";
+    order.textContent = String(index + 1).padStart(2, "0");
+    const copy = document.createElement("span");
+    copy.className = "recent-reading-copy";
+    const bookTitle = document.createElement("strong");
+    bookTitle.textContent = book.title;
+    const location = document.createElement("span");
+    location.textContent = recentReadingLocation(entry);
+    copy.append(bookTitle, location);
+    const progress = document.createElement("progress");
+    progress.max = 1;
+    progress.value = clamp(entry.progression, 0, 1);
+    progress.setAttribute("aria-hidden", "true");
+    const percentage = document.createElement("span");
+    percentage.className = "recent-reading-percentage";
+    percentage.textContent = `${Math.round(progress.value * 100)}%`;
+    button.append(order, copy, progress, percentage);
+    button.addEventListener("click", () => void openBook(book, shelf));
+    list.append(button);
+  });
+
+  section.append(heading, list);
+  return section;
+}
+
+function recentReadingLocation(entry) {
+  const locator = entry.locator_json || {};
+  const location = locator.type === "pdf"
+    ? `第 ${locator.page || (Number(locator.page_index) + 1) || 1} 页`
+    : locator.chapter_title || "继续上次章节";
+  return `${location} · ${formatRecentTime(entry.updated_at)}`;
+}
+
+function formatRecentTime(value) {
+  const normalized = typeof value === "string" && !/(?:z|[+-]\d{2}:\d{2})$/i.test(value)
+    ? `${value}Z`
+    : value;
+  const timestamp = new Date(normalized);
+  if (Number.isNaN(timestamp.getTime())) return "最近";
+  const elapsed = Date.now() - timestamp.getTime();
+  if (elapsed >= 0 && elapsed < 60_000) return "刚刚";
+  if (elapsed >= 0 && elapsed < 3_600_000) return `${Math.max(1, Math.floor(elapsed / 60_000))} 分钟前`;
+  if (elapsed >= 0 && elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)} 小时前`;
+  return timestamp.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+}
+
 async function loadBookCover(book, shelf, container) {
   try {
     const shelfPin = state.shelfPins.get(shelf.id) || null;
@@ -690,6 +776,7 @@ async function openBook(book, shelf) {
   state.currentShelfPin = state.shelfPins.get(shelf.id) || null;
   state.readerKind = book.format === PDF_FORMAT ? "pdf" : "text";
   state.currentChapter = null;
+  state.textChapters.clear();
   state.toc = [];
   state.lastSavedLocator = "";
   elements.readerBookName.textContent = book.title;
@@ -766,11 +853,9 @@ async function loadTextChapter(index, { restoreRatio = 0, skipSave = false, auto
   state.chapterIndex = index;
   updateNavigation();
   try {
-    const tocItem = state.toc[index];
-    const chapter = await api(
-      `/books/${encodeURIComponent(state.currentBook.id)}/chapters/${encodeURIComponent(tocItem.id)}`,
-      { shelfPin: state.currentShelfPin },
-    );
+    const chapter = await fetchTextChapter(index);
+    state.textChapters.clear();
+    state.textChapters.set(index, chapter);
     state.currentChapter = chapter;
     renderChapter(chapter, index);
     renderToc();
@@ -778,7 +863,7 @@ async function loadTextChapter(index, { restoreRatio = 0, skipSave = false, auto
     state.lastScrollY = window.scrollY;
     restoreChapterPosition(restoreRatio, true);
     announce(`已打开${chapter.title}`);
-    if (autoAdvance) showToast("已自动进入下一章");
+    if (autoAdvance) showToast(`已接续：${chapter.title}`);
   } catch (error) {
     if (state.token) {
       renderReaderError(error instanceof ApiError ? error.message : "章节暂时无法打开。");
@@ -789,16 +874,81 @@ async function loadTextChapter(index, { restoreRatio = 0, skipSave = false, auto
   }
 }
 
+async function fetchTextChapter(index) {
+  const tocItem = state.toc[index];
+  return api(
+    `/books/${encodeURIComponent(state.currentBook.id)}/chapters/${encodeURIComponent(tocItem.id)}`,
+    { shelfPin: state.currentShelfPin },
+  );
+}
+
+async function appendTextChapter(index, { autoAdvance = false, scrollIntoView = false } = {}) {
+  if (index < 0 || index >= state.toc.length) return;
+  const existing = textChapterSection(index);
+  if (existing) {
+    if (scrollIntoView) scrollToTextChapter(index);
+    return;
+  }
+  if (state.chapterBusy) return;
+
+  const bookId = state.currentBook?.id;
+  if (!bookId) return;
+  state.chapterBusy = true;
+  clearAutoAdvance();
+  await saveProgress(true);
+  updateNavigation();
+
+  const loading = document.createElement("div");
+  loading.className = "chapter-append-loading";
+  loading.setAttribute("role", "status");
+  loading.textContent = "正在接续下一章……";
+  elements.readerArticle.append(loading);
+  elements.readerArticle.setAttribute("aria-busy", "true");
+
+  try {
+    const chapter = await fetchTextChapter(index);
+    if (state.currentBook?.id !== bookId || state.readerKind !== "text") return;
+    state.textChapters.set(index, chapter);
+    loading.replaceWith(createChapterSection(chapter, index));
+    elements.readerArticle.removeAttribute("aria-busy");
+    state.chapterLoadedAt = Date.now();
+    if (scrollIntoView) scrollToTextChapter(index);
+    announce(`已在末尾接续${chapter.title}`);
+    if (autoAdvance) showToast(`已接续：${chapter.title}`);
+  } catch (error) {
+    loading.remove();
+    elements.readerArticle.removeAttribute("aria-busy");
+    if (state.token) {
+      showToast(error instanceof ApiError ? error.message : "下一章暂时无法载入。", true);
+    }
+  } finally {
+    state.chapterBusy = false;
+    updateNavigation();
+    markAutoAdvanceReady();
+  }
+}
+
 function renderChapter(chapter, index) {
+  elements.readerArticle.replaceChildren(createChapterSection(chapter, index));
+  elements.readerArticle.removeAttribute("aria-busy");
+}
+
+function createChapterSection(chapter, index) {
+  const section = document.createElement("section");
+  section.className = "chapter-section";
+  section.dataset.chapterIndex = String(index);
+  section.dataset.chapterId = chapter.id;
+
   const heading = document.createElement("header");
   heading.className = "chapter-heading";
   const number = document.createElement("p");
   number.className = "chapter-number";
   number.textContent = `CHAPTER ${String(index + 1).padStart(2, "0")} / ${String(state.toc.length).padStart(2, "0")}`;
   const title = document.createElement("h1");
-  title.id = "current-chapter-title";
+  title.id = `chapter-title-${chapter.id}`;
   title.tabIndex = -1;
   title.textContent = chapter.title;
+  section.setAttribute("aria-labelledby", title.id);
   heading.append(number, title);
 
   const content = document.createElement("div");
@@ -820,8 +970,8 @@ function renderChapter(chapter, index) {
     });
     content.append(fragment);
   }
-  elements.readerArticle.replaceChildren(heading, content);
-  elements.readerArticle.removeAttribute("aria-busy");
+  section.append(heading, content);
+  return section;
 }
 
 function normalizeTitle(value) {
@@ -830,7 +980,8 @@ function normalizeTitle(value) {
 
 function restoreChapterPosition(ratio, startAtTop) {
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    const content = elements.readerArticle.querySelector(".chapter-content");
+    const section = textChapterSection(state.chapterIndex);
+    const content = section?.querySelector(".chapter-content");
     if (!content) return;
     const contentTop = content.getBoundingClientRect().top + window.scrollY;
     const travel = Math.max(0, content.offsetHeight - window.innerHeight * .72);
@@ -838,23 +989,68 @@ function restoreChapterPosition(ratio, startAtTop) {
     window.scrollTo({ top, behavior: "auto" });
     updateReadingProgress();
     if (startAtTop && ratio === 0) {
-      elements.readerArticle.querySelector("h1")?.focus({ preventScroll: true });
+      section.querySelector("h1")?.focus({ preventScroll: true });
     }
-    clearTimeout(state.autoAdvanceReadyTimer);
-    state.autoAdvanceReadyTimer = window.setTimeout(() => {
-      state.autoAdvanceReadyTimer = 0;
-      state.lastScrollY = window.scrollY;
-      state.autoAdvanceReady = true;
-    }, 500);
+    markAutoAdvanceReady();
   }));
 }
 
 function chapterProgress() {
-  const content = elements.readerArticle.querySelector(".chapter-content");
+  const content = textChapterSection(state.chapterIndex)?.querySelector(".chapter-content");
   if (!content) return 0;
   const contentTop = content.getBoundingClientRect().top + window.scrollY;
   const travel = Math.max(1, content.offsetHeight - window.innerHeight * .72);
   return clamp((window.scrollY - contentTop) / travel, 0, 1);
+}
+
+function textChapterSection(index) {
+  return elements.readerArticle.querySelector(`.chapter-section[data-chapter-index="${index}"]`);
+}
+
+function lastLoadedTextChapterIndex() {
+  return state.textChapters.size ? Math.max(...state.textChapters.keys()) : -1;
+}
+
+function setCurrentTextChapter(index) {
+  const chapter = state.textChapters.get(index);
+  if (!chapter || state.chapterIndex === index && state.currentChapter === chapter) return false;
+  state.chapterIndex = index;
+  state.currentChapter = chapter;
+  updateNavigation();
+  renderToc();
+  return true;
+}
+
+function scrollToTextChapter(index) {
+  const section = textChapterSection(index);
+  if (!section) return;
+  setCurrentTextChapter(index);
+  const top = section.getBoundingClientRect().top + window.scrollY - 86;
+  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  section.querySelector("h1")?.focus({ preventScroll: true });
+  announce(`已打开${state.currentChapter.title}`);
+}
+
+function syncCurrentTextChapter() {
+  const sections = Array.from(elements.readerArticle.querySelectorAll(".chapter-section"));
+  if (!sections.length) return;
+  const anchor = window.scrollY + window.innerHeight * .3;
+  let active = sections[0];
+  for (const section of sections) {
+    const top = section.getBoundingClientRect().top + window.scrollY;
+    if (top <= anchor) active = section;
+    else break;
+  }
+  setCurrentTextChapter(Number(active.dataset.chapterIndex));
+}
+
+function markAutoAdvanceReady() {
+  clearTimeout(state.autoAdvanceReadyTimer);
+  state.autoAdvanceReadyTimer = window.setTimeout(() => {
+    state.autoAdvanceReadyTimer = 0;
+    state.lastScrollY = window.scrollY;
+    state.autoAdvanceReady = true;
+  }, 500);
 }
 
 async function openPdfBook(book) {
@@ -939,13 +1135,19 @@ function setPdfPage(page) {
 function previousSection() {
   if (state.chapterBusy) return;
   if (state.readerKind === "pdf") setPdfPage(state.pdfPage - 1);
-  else if (state.readerKind === "text") void loadTextChapter(state.chapterIndex - 1);
+  else if (state.readerKind === "text") {
+    const index = state.chapterIndex - 1;
+    if (textChapterSection(index)) scrollToTextChapter(index);
+    else void loadTextChapter(index);
+  }
 }
 
 function nextSection() {
   if (state.chapterBusy) return;
   if (state.readerKind === "pdf") setPdfPage(state.pdfPage + 1);
-  else if (state.readerKind === "text") void loadTextChapter(state.chapterIndex + 1);
+  else if (state.readerKind === "text") {
+    void appendTextChapter(state.chapterIndex + 1, { scrollIntoView: true });
+  }
 }
 
 function updateNavigation() {
@@ -1024,6 +1226,7 @@ function renderToc() {
     button.addEventListener("click", () => {
       closeToc();
       if (state.readerKind === "pdf") setPdfPage(item.page);
+      else if (textChapterSection(index)) scrollToTextChapter(index);
       else void loadTextChapter(index);
     });
     fragment.append(button);
@@ -1039,6 +1242,7 @@ function onReaderScroll() {
   if (!state.scrollFrame) {
     state.scrollFrame = requestAnimationFrame(() => {
       state.scrollFrame = 0;
+      if (state.readerKind === "text") syncCurrentTextChapter();
       updateReadingProgress();
     });
   }
@@ -1059,11 +1263,12 @@ function clearAutoAdvance() {
 }
 
 function scheduleAutoAdvance(currentScrollY, scrollDelta) {
+  const lastLoadedIndex = lastLoadedTextChapterIndex();
   if (
     state.readerKind !== "text"
     || state.chapterBusy
     || !state.currentChapter
-    || state.chapterIndex >= state.toc.length - 1
+    || lastLoadedIndex >= state.toc.length - 1
   ) {
     clearAutoAdvance();
     return;
@@ -1099,12 +1304,12 @@ function scheduleAutoAdvance(currentScrollY, scrollDelta) {
     if (
       !state.autoAdvanceArmed
       || state.chapterBusy
-      || state.chapterIndex >= state.toc.length - 1
+      || lastLoadedTextChapterIndex() >= state.toc.length - 1
       || latestRemaining > 64
     ) return;
 
     state.autoAdvanceArmed = false;
-    void loadTextChapter(state.chapterIndex + 1, { autoAdvance: true });
+    void appendTextChapter(lastLoadedTextChapterIndex() + 1, { autoAdvance: true });
   }, 220);
 }
 
@@ -1153,7 +1358,7 @@ async function saveProgress(silent = false) {
   const serialized = JSON.stringify(payload);
   if (serialized === state.lastSavedLocator) return;
   try {
-    await api(
+    const saved = await api(
       `/books/${encodeURIComponent(state.currentBook.id)}/progress/${encodeURIComponent(state.deviceId)}`,
       {
         method: "PUT",
@@ -1163,9 +1368,27 @@ async function saveProgress(silent = false) {
       },
     );
     state.lastSavedLocator = serialized;
+    updateRecentReading(saved);
   } catch (error) {
     if (!silent && state.token) showToast(error instanceof ApiError ? error.message : "阅读进度暂时无法同步。", true);
   }
+}
+
+function updateRecentReading(progress) {
+  const book = state.currentBook;
+  if (!book) return;
+  const shelf = state.shelves.find((item) => item.books?.some((candidate) => candidate.id === book.id));
+  if (!shelf) return;
+  const entry = {
+    book,
+    progression: progress.progression,
+    locator_json: progress.locator_json,
+    updated_at: progress.updated_at,
+  };
+  shelf.recent_reading = [
+    entry,
+    ...(shelf.recent_reading || []).filter((item) => item.book.id !== book.id),
+  ].slice(0, 6);
 }
 
 async function backToLibrary() {

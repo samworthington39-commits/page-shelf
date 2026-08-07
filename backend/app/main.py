@@ -77,7 +77,12 @@ async def harden_responses(request: Request, call_next):  # type: ignore[no-unty
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-    if request.url.path.startswith("/api/v1/admin") or request.url.path.startswith("/api/v1/auth"):
+    if (
+        request.url.path.startswith("/api/v1/admin")
+        or request.url.path.startswith("/api/v1/auth")
+        or request.url.path.startswith("/admin/assets")
+        or request.url.path.startswith("/reader/assets")
+    ):
         response.headers.setdefault("Cache-Control", "no-store")
     return response
 app.include_router(library.router, prefix="/api/v1")

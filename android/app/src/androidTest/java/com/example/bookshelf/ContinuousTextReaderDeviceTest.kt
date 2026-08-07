@@ -55,12 +55,12 @@ class ContinuousTextReaderDeviceTest {
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodes(hasText("第一章", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("第一章", substring = true).assertIsDisplayed()
+        composeRule.onAllNodes(hasText("第一章", substring = true))[0].assertIsDisplayed()
         composeRule.onNode(hasScrollAction()).performTouchInput { swipeLeft() }
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodes(hasText("第二章", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("第二章", substring = true).assertIsDisplayed()
+        composeRule.onAllNodes(hasText("第二章", substring = true))[0].assertIsDisplayed()
     }
 
     @Test
@@ -132,7 +132,7 @@ class ContinuousTextReaderDeviceTest {
         composeRule.waitUntil(5_000) { visiblePosition.get().first >= 0 }
 
         assertEquals(10, visiblePosition.get().first)
-        composeRule.onNodeWithText("窗口章节 10", substring = true).assertIsDisplayed()
+        composeRule.onAllNodes(hasText("窗口章节 10", substring = true))[0].assertIsDisplayed()
     }
 
     @Test
@@ -149,6 +149,7 @@ class ContinuousTextReaderDeviceTest {
                     preferences = ReaderPreferences(),
                     colors = palette,
                     narrationHighlight = null,
+                    controlsVisible = false,
                     onToggleControls = {},
                     onPositionChanged = { _, _ -> },
                     onVisiblePositionChanged = { _, _ -> },
@@ -158,7 +159,7 @@ class ContinuousTextReaderDeviceTest {
         }
 
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("第二章"))
-        composeRule.onNodeWithText("第二章").assertIsDisplayed()
+        composeRule.onAllNodes(hasText("第二章"))[0].assertIsDisplayed()
     }
 
     @Test
@@ -177,6 +178,7 @@ class ContinuousTextReaderDeviceTest {
                     preferences = ReaderPreferences(),
                     colors = palette,
                     narrationHighlight = null,
+                    controlsVisible = false,
                     onToggleControls = { controlToggles.incrementAndGet() },
                     onPositionChanged = { chapterIndex, offset ->
                         position.set(chapterIndex to offset)

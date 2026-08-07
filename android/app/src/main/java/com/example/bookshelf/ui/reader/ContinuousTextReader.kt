@@ -5,6 +5,13 @@
 
 package com.example.bookshelf.ui.reader
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +19,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,9 +34,11 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -37,27 +47,37 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bookshelf.domain.ReaderFont
 import com.example.bookshelf.domain.ReaderPreferences
 import com.example.bookshelf.domain.TextChapter
 import com.example.bookshelf.domain.contiguousLoadedChapterIndices
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -72,6 +92,84 @@ private data class ReaderPage(
 ) {
     val key: String = "${chapter.id}:${range.start}"
     val bodyOffset: Int = chapterBodyOffset(range.start, bodyStart, chapter.body.length)
+}
+
+/**
+ * Immersive-read HUD shown while the system bars are hidden: current chapter title at the
+ * top-start and the current time at the top-end. The chapter label animates so the outgoing
+ * title slides away horizontally (left when moving to a later chapter, right when going back)
+ * and the incoming one arrives from the opposite side.
+ */
+@Composable
+private fun ReaderImmersiveOverlay(
+    visible: Boolean,
+    chapterTitle: String,
+    chapterIndex: Int,
+    foreground: Color,
+    background: Color,
+    modifier: Modifier = Modifier,
+    applyWindowInsets: Boolean = true,
+) {
+    if (!visible) return
+    var nowText by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) {
+        val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
+        while (true) {
+            nowText = formatter.format(Date())
+            delay(30_000)
+        }
+    }
+    val insetsModifier = if (applyWindowInsets) {
+        Modifier
+            .windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility)
+            .windowInsetsPadding(WindowInsets.displayCutout)
+    } else {
+        Modifier
+    }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(insetsModifier)
+            .background(background)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        AnimatedContent(
+            modifier = Modifier.weight(1f, fill = false),
+            targetState = chapterIndex to chapterTitle,
+            transitionSpec = {
+                val goingForward = targetState.first > initialState.first
+                val exit = if (goingForward) {
+                    fadeOut() + slideOutHorizontally { -it / 2 }
+                } else {
+                    fadeOut() + slideOutHorizontally { it / 2 }
+                }
+                val enter = if (goingForward) {
+                    fadeIn() + slideInHorizontally { it / 2 }
+                } else {
+                    fadeIn() + slideInHorizontally { -it / 2 }
+                }
+                (enter togetherWith exit)
+            },
+            label = "immersiveChapterTitle",
+        ) { (_, title) ->
+            Text(
+                text = title,
+                modifier = Modifier.testTag("immersiveHudChapterTitle"),
+                color = foreground.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            text = nowText.ifBlank { "00:00" },
+            color = foreground.copy(alpha = 0.8f),
+            fontSize = 14.sp,
+            modifier = Modifier.padding(start = 12.dp).testTag("immersiveHudTime"),
+        )
+    }
 }
 
 @Composable
@@ -223,11 +321,28 @@ internal fun ContinuousPagedChapters(
             val page = pages[pageIndex]
             val pageText = remember(page) { page.displayText.substring(page.range.start, page.range.end) }
             val highlight = narrationHighlight.takeIf { page.chapterIndex == currentChapterIndex }
-            val annotated = remember(pageText, page, highlight, narrationColor) {
-                readerPageText(pageText, page, highlight, narrationColor)
+            val annotated = remember(pageText, page, highlight, narrationColor, displayedStyle.fontSize) {
+                readerPageText(pageText, page, highlight, narrationColor, (displayedStyle.fontSize.value + 4f).sp)
             }
             Text(annotated, style = displayedStyle, modifier = Modifier.fillMaxSize())
         }
+
+        val currentPage = pages.getOrNull(pager.currentPage)
+        val currentPageChapterIndex = currentPage?.chapterIndex ?: currentChapterIndex
+        val currentPageChapterTitle = remember(pages, currentPageChapterIndex) {
+            val chapter = pages.firstOrNull { it.chapterIndex == currentPageChapterIndex }?.chapter
+            val title = chapter?.title?.takeIf { it.isNotBlank() } ?: "第 ${currentPageChapterIndex + 1} 章"
+            title
+        }
+        // The paged reader's BoxWithConstraints already applies the system-bar insets.
+        ReaderImmersiveOverlay(
+            visible = !controlsVisible,
+            chapterTitle = currentPageChapterTitle,
+            chapterIndex = currentPageChapterIndex,
+            foreground = colors.foreground,
+            background = colors.background,
+            applyWindowInsets = false,
+        )
     }
 }
 
@@ -243,11 +358,12 @@ private fun readerPageText(
     page: ReaderPage,
     highlight: NarrationHighlight?,
     narrationColor: Color,
+    headingFontSize: TextUnit,
 ): AnnotatedString = AnnotatedString.Builder(pageText).apply {
     val headingEnd = minOf(page.range.end, page.bodyStart)
     if (headingEnd > page.range.start) {
         addStyle(
-            SpanStyle(fontWeight = FontWeight.SemiBold),
+            SpanStyle(fontWeight = FontWeight.SemiBold, fontSize = headingFontSize),
             0,
             headingEnd - page.range.start,
         )
@@ -281,6 +397,7 @@ internal fun ContinuousScrollingChapters(
     preferences: ReaderPreferences,
     colors: ReaderPalette,
     narrationHighlight: NarrationHighlight?,
+    controlsVisible: Boolean,
     onToggleControls: () -> Unit,
     onPositionChanged: (Int, Int) -> Unit,
     onVisiblePositionChanged: (Int, Int) -> Unit,
@@ -300,6 +417,33 @@ internal fun ContinuousScrollingChapters(
     var handledRevision by remember { mutableIntStateOf(positionRevision - 1) }
     val currentChapter = chapters[currentChapterIndex]
     val currentMeasurement = currentChapter?.let { measurements[it.id] }
+    val density = LocalDensity.current
+    val collapseStartPx = with(density) { 16.dp.toPx() }
+    val collapseRangePx = with(density) { 60.dp.toPx() }
+    val collapseLiftPx = with(density) { 18.dp.toPx() }
+    val collapseShiftPx = with(density) { 10.dp.toPx() }
+    val collapseState = remember { mutableFloatStateOf(0f) }
+    var collapseTargetId by remember { mutableStateOf<String?>(null) }
+    var pinnedChapterIndex by remember { mutableIntStateOf(currentChapterIndex) }
+
+    // As a chapter heading scrolls up past the top of the viewport it shrinks and pins to the
+    // top-start HUD corner; the pinned title tracks the chapter whose heading currently owns
+    // the top of the viewport (the first visible chapter item, ignoring padding spacers).
+    LaunchedEffect(listState, entries) {
+        snapshotFlow {
+            val first = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+                entries.any { it.second.id == item.key }
+            }
+            val entry = first?.key?.let { key -> entries.firstOrNull { it.second.id == key } }
+            val headingTop = first?.offset?.toFloat() ?: collapseStartPx
+            val progress = ((collapseStartPx - headingTop) / collapseRangePx).coerceIn(0f, 1f)
+            Triple(progress, entry?.second?.id, entry?.first)
+        }.distinctUntilChanged().collect { (progress, targetId, index) ->
+            collapseState.floatValue = progress
+            collapseTargetId = targetId
+            index?.let { pinnedChapterIndex = it }
+        }
+    }
 
     LaunchedEffect(positionRevision, entries, currentMeasurement, viewportHeight) {
         if (handledRevision == positionRevision || entries.isEmpty()) return@LaunchedEffect
@@ -370,6 +514,13 @@ internal fun ContinuousScrollingChapters(
         }
     }
 
+    val pinnedTitle = remember(entries, pinnedChapterIndex) {
+        val entry = entries.firstOrNull { it.first == pinnedChapterIndex } ?: entries.firstOrNull()
+        entry?.let { (index, chapter) ->
+            chapter.title.takeIf { it.isNotBlank() } ?: "第 ${index + 1} 章"
+        }.orEmpty()
+    }
+
     Box(
         Modifier.fillMaxSize().pointerInput(listState, viewportHeight) {
             detectTapGestures { point ->
@@ -401,11 +552,22 @@ internal fun ContinuousScrollingChapters(
                     style = style,
                     highlight = narrationHighlight.takeIf { chapterIndex == currentChapterIndex },
                     narrationColor = narrationColor,
+                    collapseState = collapseState,
+                    collapseTargetId = collapseTargetId,
+                    collapseLiftPx = collapseLiftPx,
+                    collapseShiftPx = collapseShiftPx,
                     onMeasurement = { measurements[chapter.id] = it },
                     onDispose = { measurements.remove(chapter.id) },
                 )
             }
         }
+        ReaderImmersiveOverlay(
+            visible = !controlsVisible,
+            chapterTitle = pinnedTitle,
+            chapterIndex = pinnedChapterIndex,
+            foreground = colors.foreground,
+            background = colors.background,
+        )
     }
 }
 
@@ -436,6 +598,10 @@ private fun ChapterStreamItem(
     style: TextStyle,
     highlight: NarrationHighlight?,
     narrationColor: Color,
+    collapseState: State<Float>,
+    collapseTargetId: String?,
+    collapseLiftPx: Float,
+    collapseShiftPx: Float,
     onMeasurement: (ChapterMeasurement) -> Unit,
     onDispose: () -> Unit,
 ) {
@@ -449,13 +615,29 @@ private fun ChapterStreamItem(
     }
     DisposableEffect(chapter.id) { onDispose { onDispose() } }
 
+    val isCollapseTarget = remember(chapter.id, collapseTargetId) { chapter.id == collapseTargetId }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Text(
             text = chapter.title.ifBlank { "第 ${chapterIndex + 1} 章" },
             style = style.copy(
-                fontSize = (style.fontSize.value + 2f).sp,
+                fontSize = (style.fontSize.value + 4f).sp,
                 fontWeight = FontWeight.SemiBold,
             ),
+            modifier = Modifier.graphicsLayer {
+                transformOrigin = TransformOrigin(0f, 0f)
+                if (isCollapseTarget) {
+                    // Scrolls up: shrink toward the top-start corner. Scrolls down: grow back
+                    // to the in-body position (从哪来回哪去). Fades out only once fully pinned,
+                    // where the HUD label takes over.
+                    val p = collapseState.value
+                    val scale = 1f - 0.38f * p
+                    scaleX = scale
+                    scaleY = scale
+                    translationY = -p * collapseLiftPx
+                    translationX = -p * collapseShiftPx
+                    alpha = 1f - 0.85f * p
+                }
+            },
         )
         Text(
             text = displayedText,

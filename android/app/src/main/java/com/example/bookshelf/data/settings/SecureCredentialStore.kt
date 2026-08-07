@@ -18,7 +18,7 @@ class SecureCredentialStore(context: Context) {
 
     fun clearPassword() = preferences.edit { remove(KEY_PASSWORD) }
 
-    fun saveSession(token: String, expiresAtEpochMs: Long) {
+    fun saveSession(token: String) {
         runCatching { putEncrypted(KEY_TOKEN, token) }
             .recoverCatching {
                 // An OS upgrade or restored app data can leave an unusable Keystore
@@ -28,19 +28,15 @@ class SecureCredentialStore(context: Context) {
                 putEncrypted(KEY_TOKEN, token)
             }
             .getOrThrow()
-        preferences.edit { putLong(KEY_EXPIRES_AT, expiresAtEpochMs) }
     }
 
-    fun bearerToken(): String? {
-        val expires = preferences.getLong(KEY_EXPIRES_AT, 0L)
-        if (expires <= System.currentTimeMillis() + 30_000L) return null
-        return getEncrypted(KEY_TOKEN)
-    }
+    // 会话不设有效时限：只要服务器仍接受该令牌就持续有效，
+    // 服务器修改管理密码后才会返回 401 并触发重新登录。
+    fun bearerToken(): String? = getEncrypted(KEY_TOKEN)
 
     fun clearSession() {
         preferences.edit {
             remove(KEY_TOKEN)
-            remove(KEY_EXPIRES_AT)
         }
     }
 
@@ -92,7 +88,6 @@ class SecureCredentialStore(context: Context) {
         const val KEY_ALIAS = "page_shelf_credentials_v1"
         const val KEY_PASSWORD = "password"
         const val KEY_TOKEN = "token"
-        const val KEY_EXPIRES_AT = "expires_at"
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val IV_BYTES = 12
     }

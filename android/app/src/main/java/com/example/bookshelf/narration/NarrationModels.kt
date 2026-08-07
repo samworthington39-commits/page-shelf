@@ -13,6 +13,17 @@ enum class NarrationStatus {
     ERROR,
 }
 
+enum class NarrationSleepTimer(
+    val displayName: String,
+    val durationMillis: Long?,
+) {
+    END_OF_CHAPTER("本章结束", null),
+    MINUTES_10("10分钟", 10 * 60 * 1_000L),
+    MINUTES_20("20分钟", 20 * 60 * 1_000L),
+    MINUTES_30("30分钟", 30 * 60 * 1_000L),
+    HOUR_1("1小时", 60 * 60 * 1_000L),
+}
+
 data class NarrationRequest(
     val bookId: String,
     val bookTitle: String,
@@ -39,6 +50,8 @@ data class NarrationState(
     val currentText: String = "",
     val voice: NarrationVoice = NarrationVoice.FEMALE,
     val playbackSpeed: Float = 1f,
+    val sleepTimer: NarrationSleepTimer? = null,
+    val sleepTimerEndsAtElapsedRealtimeMs: Long? = null,
     val error: String? = null,
 ) {
     val isActive: Boolean

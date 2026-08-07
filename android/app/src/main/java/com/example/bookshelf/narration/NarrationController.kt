@@ -116,6 +116,13 @@ class NarrationController(private val application: Application) {
         }
     }
 
+    fun setSleepTimer(timer: NarrationSleepTimer?) {
+        if (!state.value.isActive) return
+        send(NarrationService.ACTION_SET_SLEEP_TIMER) {
+            putExtra(NarrationService.EXTRA_SLEEP_TIMER, timer?.name.orEmpty())
+        }
+    }
+
     private fun send(action: String, extras: Intent.() -> Unit = {}) {
         val intent = Intent(application, NarrationService::class.java).setAction(action).apply(extras)
         if (action == NarrationService.ACTION_START) {
