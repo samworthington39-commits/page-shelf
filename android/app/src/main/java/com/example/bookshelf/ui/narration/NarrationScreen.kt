@@ -256,17 +256,17 @@ private fun NarrationDisc(playing: Boolean, modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "narration-disc")
     val rotation by transition.animateFloat(
         initialValue = 0f,
-        targetValue = 360f,
+        targetValue = if (playing) 360f else 0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = if (playing) 16_000 else 60_000, easing = LinearEasing),
+            animation = tween(durationMillis = if (playing) 14_000 else 90_000, easing = LinearEasing),
         ),
         label = "disc-rotation",
     )
     val pulse by transition.animateFloat(
-        initialValue = 0.97f,
-        targetValue = 1.04f,
+        initialValue = 0.985f,
+        targetValue = 1.015f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2_200, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 2_800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "disc-pulse",

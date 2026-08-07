@@ -1,7 +1,6 @@
 package com.example.bookshelf.ui.reader
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -54,19 +53,13 @@ internal fun ReaderLoadingScreen(
 ) {
     val transition = rememberInfiniteTransition(label = "reader-loading")
     val pulse by transition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
+        initialValue = 0.97f,
+        targetValue = 1.03f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1_400, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 1_800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "reader-loading-pulse",
-    )
-    val ringRotation by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(durationMillis = 9_000, easing = LinearEasing)),
-        label = "reader-loading-ring",
     )
     val status = if (total > 0) "$message，加载进度 $completed / $total 章" else "$message，$detail"
     LiquidBackdrop(
@@ -88,31 +81,16 @@ internal fun ReaderLoadingScreen(
             shadow = true,
         ) {
             Column(
-                Modifier.padding(horizontal = 34.dp, vertical = 30.dp),
+                Modifier.padding(horizontal = 36.dp, vertical = 30.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Box(
-                    Modifier.size(84.dp).graphicsLayer { scaleX = pulse; scaleY = pulse },
+                    Modifier.size(76.dp).graphicsLayer { scaleX = pulse; scaleY = pulse },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .graphicsLayer { rotationZ = ringRotation }
-                            .background(
-                                Brush.sweepGradient(
-                                    listOf(
-                                        Color.Transparent,
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                                        Color.Transparent,
-                                    ),
-                                ),
-                                CircleShape,
-                            ),
-                    )
                     GlassSurface(
-                        modifier = Modifier.fillMaxSize().padding(6.dp),
+                        modifier = Modifier.fillMaxSize(),
                         shape = CircleShape,
                         specular = true,
                         shadow = false,
@@ -122,35 +100,27 @@ internal fun ReaderLoadingScreen(
                                 Icons.AutoMirrored.Outlined.MenuBook,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(34.dp),
+                                modifier = Modifier.size(32.dp),
                             )
                         }
                     }
+                    CircularProgressIndicator(
+                        modifier = Modifier.fillMaxSize().padding(5.dp),
+                        strokeWidth = 2.5.dp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
+                        trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    )
                 }
                 Text(message, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Text(detail, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
                 if (total > 0) {
-                    RowCentered("加载进度 $completed / $total 章")
-                } else {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(22.dp),
-                        strokeWidth = 2.5.dp,
+                    Text(
+                        "加载进度 $completed / $total 章",
+                        style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun RowCentered(text: String) {
-    Box(contentAlignment = Alignment.Center) {
-        Text(
-            text,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
     }
 }

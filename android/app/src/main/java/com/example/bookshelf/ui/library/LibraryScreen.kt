@@ -374,7 +374,7 @@ private fun BookRow(
                 placeholder = ColorPainter(MaterialTheme.colorScheme.surfaceVariant),
                 modifier = Modifier
                     .size(width = 72.dp, height = 100.dp)
-                    .clip(RoundedCornerShape(10.dp)),
+                    .clip(MaterialTheme.shapes.extraSmall),
                 contentScale = ContentScale.Crop,
             )
             Column(Modifier.weight(1f).height(100.dp)) {
@@ -382,6 +382,7 @@ private fun BookRow(
                     Text(
                         book.title,
                         style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
@@ -423,14 +424,7 @@ private fun BookRow(
                             Modifier
                                 .fillMaxWidth(progressFraction)
                                 .height(3.dp)
-                                .background(
-                                    Brush.horizontalGradient(
-                                        listOf(
-                                            MaterialTheme.colorScheme.primary,
-                                            MaterialTheme.colorScheme.tertiary,
-                                        ),
-                                    ),
-                                ),
+                                .background(MaterialTheme.colorScheme.primary),
                         )
                     }
                 }

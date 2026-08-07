@@ -1,7 +1,6 @@
 package com.example.bookshelf.ui.auth
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -11,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,9 +39,6 @@ import com.example.bookshelf.ui.glass.GlassButton
 import com.example.bookshelf.ui.glass.GlassSurface
 import com.example.bookshelf.ui.glass.LiquidBackdrop
 import com.example.bookshelf.ui.glass.StaggeredReveal
-import com.example.bookshelf.ui.glass.glassPalette
-import kotlin.math.cos
-import kotlin.math.sin
 
 @Composable
 fun StartupScreen(state: StartupState, onRetry: () -> Unit, onEditServer: () -> Unit) {
@@ -55,10 +52,10 @@ fun StartupScreen(state: StartupState, onRetry: () -> Unit, onEditServer: () -> 
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            StaggeredReveal(index = 0) { BrandOrb() }
+            StaggeredReveal(index = 0) { BrandMedallion() }
             StaggeredReveal(index = 1) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Spacer(Modifier.height(26.dp))
+                    Spacer(Modifier.height(24.dp))
                     Text(
                         "页架",
                         style = MaterialTheme.typography.headlineLarge,
@@ -73,20 +70,32 @@ fun StartupScreen(state: StartupState, onRetry: () -> Unit, onEditServer: () -> 
                     )
                 }
             }
-            Spacer(Modifier.height(42.dp))
+            Spacer(Modifier.height(44.dp))
             when (state) {
                 StartupState.Checking, StartupState.Connected -> {
                     StaggeredReveal(index = 2) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(18.dp),
+                        GlassSurface(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            shadow = false,
+                            specular = true,
                         ) {
-                            GlassProgressRing()
-                            Text(
-                                "正在连接书架…",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Row(
+                                Modifier.padding(horizontal = 22.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(22.dp),
+                                    strokeWidth = 2.5.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.outlineVariant,
+                                )
+                                Text(
+                                    "正在连接书架…",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
                         }
                     }
                 }
@@ -94,12 +103,13 @@ fun StartupScreen(state: StartupState, onRetry: () -> Unit, onEditServer: () -> 
                     StaggeredReveal(index = 2) {
                         GlassSurface(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
+                            shape = MaterialTheme.shapes.extraLarge,
+                            shadow = true,
                         ) {
                             Column(
                                 Modifier.padding(horizontal = 24.dp, vertical = 26.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
                             ) {
                                 Text(
                                     state.message ?: "需要连接服务器",
@@ -107,10 +117,10 @@ fun StartupScreen(state: StartupState, onRetry: () -> Unit, onEditServer: () -> 
                                     color = MaterialTheme.colorScheme.onSurface,
                                     textAlign = TextAlign.Center,
                                 )
-                                GlassButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
+                                GlassButton(onClick = onRetry, modifier = Modifier.fillMaxWidth().height(50.dp)) {
                                     Text("重试")
                                 }
-                                GlassButton(onClick = onEditServer, filled = false, modifier = Modifier.fillMaxWidth()) {
+                                GlassButton(onClick = onEditServer, filled = false, modifier = Modifier.fillMaxWidth().height(50.dp)) {
                                     Text("修改服务器设置")
                                 }
                             }
@@ -122,48 +132,43 @@ fun StartupScreen(state: StartupState, onRetry: () -> Unit, onEditServer: () -> 
     }
 }
 
-/** The pulsing liquid-glass brand orb: a slowly rotating light ring around a frosted "页" seal. */
+/** A quiet book medallion: a frosted seal ringed by a thin, warm light — one gentle breath. */
 @Composable
-private fun BrandOrb(modifier: Modifier = Modifier, size: Dp = 108.dp) {
-    val transition = rememberInfiniteTransition(label = "brand-orb")
-    val rotation by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(durationMillis = 11_000, easing = LinearEasing)),
-        label = "orb-ring-rotation",
-    )
+private fun BrandMedallion(modifier: Modifier = Modifier, size: Dp = 112.dp) {
+    val transition = rememberInfiniteTransition(label = "medallion")
     val pulse by transition.animateFloat(
-        initialValue = 0.97f,
-        targetValue = 1.04f,
+        initialValue = 0.99f,
+        targetValue = 1.025f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1_800, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 2_600, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
         ),
-        label = "orb-pulse",
-    )
-    val palette = glassPalette()
-    val ringBrush = Brush.sweepGradient(
-        listOf(
-            Color.Transparent,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.55f),
-            Color.Transparent,
-        ),
+        label = "medallion-pulse",
     )
     Box(
         modifier = modifier.size(size).graphicsLayer { scaleX = pulse; scaleY = pulse },
         contentAlignment = Alignment.Center,
     ) {
+        // Thin static ring with a warm primary→amber gradient.
         Box(
             Modifier
                 .fillMaxSize()
-                .graphicsLayer { rotationZ = rotation }
-                .background(ringBrush, CircleShape),
+                .background(
+                    Brush.sweepGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
+                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
+                        ),
+                    ),
+                    CircleShape,
+                ),
         )
         GlassSurface(
-            modifier = Modifier.fillMaxSize().padding(7.dp),
+            modifier = Modifier.fillMaxSize().padding(6.dp),
             shape = CircleShape,
             specular = true,
+            shadow = true,
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
@@ -171,45 +176,8 @@ private fun BrandOrb(modifier: Modifier = Modifier, size: Dp = 108.dp) {
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.graphicsLayer {
-                        val t = rotation / 360f
-                        val a = 2.0 * Math.PI * t
-                        val dx = 1.5f * cos(a).toFloat()
-                        val dy = 1.5f * sin(a).toFloat()
-                        translationX = dx
-                        translationY = dy
-                    },
                 )
             }
         }
-    }
-}
-
-/** A glass progress ring that gently breathes while the connection is checked. */
-@Composable
-private fun GlassProgressRing(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "progress-ring")
-    val pulse by transition.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1_300, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "progress-pulse",
-    )
-    Box(
-        Modifier.size(64.dp).graphicsLayer { scaleX = pulse; scaleY = pulse },
-        contentAlignment = Alignment.Center,
-    ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            strokeWidth = 3.5.dp,
-        )
-        Box(
-            Modifier.size(20.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f), CircleShape),
-        )
     }
 }
