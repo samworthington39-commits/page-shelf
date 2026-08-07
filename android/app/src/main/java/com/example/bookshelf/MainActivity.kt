@@ -4,6 +4,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -11,7 +22,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -40,6 +50,25 @@ import com.example.bookshelf.ui.settings.ServerSettingsScreen
 import com.example.bookshelf.ui.theme.PageShelfTheme
 import kotlinx.coroutines.delay
 
+/** A refined push transition: the next screen glides in from the right while the old one settles. */
+private val pushEnter: EnterTransition =
+    fadeIn(tween(320, easing = FastOutSlowInEasing)) +
+        slideInHorizontally(tween(360, easing = FastOutSlowInEasing)) { it / 6 } +
+        scaleIn(initialScale = 0.985f, animationSpec = tween(360, easing = FastOutSlowInEasing))
+
+private val pushExit: ExitTransition =
+    fadeOut(tween(240, easing = FastOutSlowInEasing)) +
+        slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { -it / 10 }
+
+private val popEnter: EnterTransition =
+    fadeIn(tween(280, easing = FastOutSlowInEasing)) +
+        slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { -it / 10 }
+
+private val popExit: ExitTransition =
+    fadeOut(tween(220, easing = FastOutSlowInEasing)) +
+        slideOutHorizontally(tween(240, easing = FastOutSlowInEasing)) { it / 6 } +
+        scaleOut(targetScale = 0.985f, animationSpec = tween(240, easing = FastOutSlowInEasing))
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,7 +84,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun PageShelfApp(container: AppContainer) {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "startup") {
+    NavHost(
+        navController = navController,
+        startDestination = "startup",
+        enterTransition = { pushEnter },
+        exitTransition = { pushExit },
+        popEnterTransition = { popEnter },
+        popExitTransition = { popExit },
+    ) {
         composable("startup") {
             val model: StartupViewModel = viewModel(factory = PageShelfViewModelFactory(container))
             val state by model.state.collectAsStateWithLifecycle()

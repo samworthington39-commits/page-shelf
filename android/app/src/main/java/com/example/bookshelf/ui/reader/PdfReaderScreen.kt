@@ -87,6 +87,10 @@ import com.example.bookshelf.domain.PdfNavigationItem
 import com.example.bookshelf.ui.ReaderUiState
 import com.example.bookshelf.ui.ReaderViewModel
 import com.example.bookshelf.ui.library.formatBytes
+import com.example.bookshelf.ui.glass.GlassButton
+import com.example.bookshelf.ui.glass.GlassDialog
+import com.example.bookshelf.ui.glass.GlassSheet
+import com.example.bookshelf.ui.glass.GlassSurface
 import java.io.File
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -257,7 +261,7 @@ private fun PdfDocument(
     }
 
     if (showSettings) {
-        ModalBottomSheet(onDismissRequest = { showSettings = false }) {
+        GlassSheet(onDismissRequest = { showSettings = false }) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("PDF 阅读设置", style = MaterialTheme.typography.titleLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -293,8 +297,13 @@ private fun PdfTopBar(
     onSettings: () -> Unit,
 ) {
     val downloading = download?.status in setOf(DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING)
+    GlassSurface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+        shape = MaterialTheme.shapes.large,
+        shadow = true,
+    ) {
     Row(
-        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
+        Modifier.fillMaxWidth()
             .windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -331,6 +340,7 @@ private fun PdfTopBar(
             Icon(Icons.Outlined.Settings, contentDescription = "PDF 阅读设置")
         }
     }
+    }
 }
 
 @Composable
@@ -344,8 +354,13 @@ private fun PdfBottomBar(
     onSeek: (Int) -> Unit,
 ) {
     var slider by remember(currentPage) { mutableFloatStateOf(currentPage.toFloat()) }
+    GlassSurface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+        shape = MaterialTheme.shapes.large,
+        shadow = true,
+    ) {
     Column(
-        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
+        Modifier.fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Row(
@@ -374,6 +389,7 @@ private fun PdfBottomBar(
             )
             TextButton(onClick = onNext, enabled = currentPage < pageCount - 1) { Text("下一页") }
         }
+    }
     }
 }
 
@@ -413,9 +429,9 @@ private fun ZoomablePdfPage(session: PdfRendererSession, pageIndex: Int, fitMode
 @Composable
 private fun BookmarksDialog(items: List<PdfNavigationItem>, onDismiss: () -> Unit, onJump: (Int) -> Unit) {
     val flattened = remember(items) { flattenNavigation(items) }
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
-        title = { Text("PDF 书签") },
+        title = { Text("PDF 书签", style = MaterialTheme.typography.titleLarge) },
         text = {
             LazyColumn(Modifier.fillMaxWidth()) {
                 items(flattened) { (item, depth) ->
@@ -443,7 +459,7 @@ private fun DownloadGate(download: DownloadState?, onBack: () -> Unit, onRetry: 
             DownloadStatus.FAILED -> {
                 Text(download.error ?: "PDF 准备失败", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = onRetry) { Text("重试") }
+                GlassButton(onClick = onRetry) { Text("重试") }
             }
             else -> {
                 CircularProgressIndicator()
@@ -465,6 +481,6 @@ private fun ReaderMessage(message: String, onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.Center, Alignment.CenterHorizontally) {
         Text(message, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
         Spacer(Modifier.height(16.dp))
-        OutlinedButton(onClick = onBack) { Text("返回") }
+        GlassButton(onClick = onBack, filled = false) { Text("返回") }
     }
 }

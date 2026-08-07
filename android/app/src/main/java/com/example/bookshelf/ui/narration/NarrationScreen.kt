@@ -2,6 +2,15 @@
 
 package com.example.bookshelf.ui.narration
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,30 +23,27 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -45,6 +51,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.bookshelf.narration.NarrationController
 import com.example.bookshelf.narration.NarrationStatus
 import com.example.bookshelf.narration.NarrationVoice
+import com.example.bookshelf.ui.glass.GlassButton
+import com.example.bookshelf.ui.glass.GlassChip
+import com.example.bookshelf.ui.glass.GlassIconButton
+import com.example.bookshelf.ui.glass.GlassSurface
+import com.example.bookshelf.ui.glass.GlassTopBar
+import com.example.bookshelf.ui.glass.LiquidBackdrop
+import com.example.bookshelf.ui.glass.StaggeredReveal
 
 @Composable
 fun NarrationScreen(
@@ -62,157 +75,300 @@ fun NarrationScreen(
     val chapterTitle = state.chapterTitle.takeIf { isThisBook && it.isNotBlank() }
         ?: prepared?.takeIf { it.bookId == bookId }?.chapterTitle.orEmpty()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("听书模式") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回阅读")
-                    }
-                },
-            )
-        },
-    ) { padding ->
+    val playing = active && state.status == NarrationStatus.PLAYING
+
+    LiquidBackdrop(Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier.fillMaxSize()
-                .padding(padding)
+            modifier = Modifier
+                .fillMaxSize()
                 .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(
-                Icons.AutoMirrored.Outlined.VolumeUp,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(54.dp),
+            GlassTopBar(
+                title = "听书模式",
+                subtitle = "端侧朗读 · 不上传正文",
+                onBack = onBack,
             )
-            Spacer(Modifier.height(12.dp))
-            Text(bookTitle, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-            Text(
-                buildString {
-                    append(chapterTitle)
-                    if (isThisBook && state.chapterCount > 0) {
-                        append("  ·  ")
-                        append(state.chapterIndex + 1)
-                        append(" / ")
-                        append(state.chapterCount)
-                    }
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-
-            Card(Modifier.fillMaxWidth().padding(top = 28.dp)) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(180.dp).padding(22.dp),
-                    contentAlignment = Alignment.Center,
+            StaggeredReveal(index = 0) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(top = 18.dp),
                 ) {
-                    when {
-                        isThisBook && state.status == NarrationStatus.PREPARING -> {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator()
-                                Text("正在加载端侧语音模型…", modifier = Modifier.padding(top = 14.dp))
-                            }
-                        }
-                        isThisBook && state.currentText.isNotBlank() -> Text(
-                            state.currentText,
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        isThisBook && state.status == NarrationStatus.ERROR -> Text(
-                            state.error ?: "朗读失败",
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = TextAlign.Center,
-                        )
-                        isThisBook && state.status == NarrationStatus.COMPLETED -> Text("本书已朗读完毕")
-                        else -> Text("从阅读页的当前位置开始")
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 22.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(
-                    onClick = controller::previousChapter,
-                    enabled = active && state.status != NarrationStatus.PREPARING && state.chapterIndex > 0,
-                ) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "上一章")
-                }
-                Button(
-                    onClick = {
-                        if (active && state.status == NarrationStatus.PLAYING) controller.pause()
-                        else if (active && state.status == NarrationStatus.PAUSED) controller.resume()
-                        else controller.startPrepared()
-                    },
-                    enabled = state.status != NarrationStatus.PREPARING && (active || prepared?.bookId == bookId),
-                ) {
-                    Icon(
-                        if (active && state.status == NarrationStatus.PLAYING) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = null,
+                    NarrationDisc(playing = playing)
+                    Spacer(Modifier.height(18.dp))
+                    Text(
+                        bookTitle,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 28.dp),
                     )
                     Text(
-                        if (active && state.status == NarrationStatus.PLAYING) "暂停" else if (active) "继续" else "开始朗读",
-                        modifier = Modifier.padding(start = 6.dp),
+                        buildString {
+                            append(chapterTitle.ifBlank { "等待开始朗读" })
+                            if (isThisBook && state.chapterCount > 0) {
+                                append("  ·  ")
+                                append(state.chapterIndex + 1)
+                                append(" / ")
+                                append(state.chapterCount)
+                            }
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp, start = 28.dp, end = 28.dp),
                     )
-                }
-                IconButton(
-                    onClick = controller::nextChapter,
-                    enabled = active && state.status != NarrationStatus.PREPARING &&
-                        state.chapterCount > 0 && state.chapterIndex < state.chapterCount - 1,
-                ) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "下一章")
-                }
-            }
-            Row(
-                modifier = Modifier.padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedButton(onClick = controller::stop, enabled = active) {
-                    Icon(Icons.Outlined.Stop, contentDescription = null)
-                    Text("停止", modifier = Modifier.padding(start = 6.dp))
-                }
-                OutlinedButton(onClick = onBack, enabled = isThisBook) {
-                    Text("查看朗读正文")
                 }
             }
 
-            Column(Modifier.fillMaxWidth().padding(top = 30.dp)) {
-                Text("音色", style = MaterialTheme.typography.titleMedium)
-                Row(
-                    modifier = Modifier.padding(top = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+            StaggeredReveal(index = 1) {
+                GlassSurface(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
+                    shape = MaterialTheme.shapes.large,
+                    shadow = true,
                 ) {
-                    NarrationVoice.entries.forEach { voice ->
-                        FilterChip(
-                            selected = state.voice == voice,
-                            onClick = { controller.setVoice(voice) },
-                            label = { Text(voice.displayName) },
-                        )
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(150.dp).padding(22.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        when {
+                            isThisBook && state.status == NarrationStatus.PREPARING -> Text(
+                                "正在准备语音…",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            isThisBook && state.status == NarrationStatus.PLAYING -> Text(
+                                state.currentText,
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            isThisBook && state.status == NarrationStatus.ERROR -> Text(
+                                state.error ?: "朗读失败",
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center,
+                            )
+                            isThisBook && state.status == NarrationStatus.COMPLETED -> Text("本书已朗读完毕")
+                            else -> Text("从阅读页的当前位置开始")
+                        }
                     }
                 }
-                NarrationSpeedControls(
-                    playbackSpeed = state.playbackSpeed,
-                    onPlaybackSpeedChange = controller::setPlaybackSpeed,
-                    modifier = Modifier.padding(top = 22.dp),
-                )
-                NarrationSleepTimerControl(
-                    timer = state.sleepTimer.takeIf { isThisBook },
-                    endsAtElapsedRealtimeMs = state.sleepTimerEndsAtElapsedRealtimeMs.takeIf { isThisBook },
-                    enabled = active,
-                    onTimerChange = controller::setSleepTimer,
-                    modifier = Modifier.padding(top = 22.dp),
-                )
-                Text(
-                    "朗读引擎与内置女声均在本机运行，朗读时不上传正文。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 12.dp),
+            }
+
+            StaggeredReveal(index = 2) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    GlassIconButton(
+                        onClick = controller::previousChapter,
+                        enabled = active && state.status != NarrationStatus.PREPARING && state.chapterIndex > 0,
+                        contentDescription = "上一章",
+                        size = 52.dp,
+                    ) {
+                        Icon(Icons.Filled.SkipPrevious, contentDescription = null)
+                    }
+                    NarrationPlayButton(
+                        playing = playing,
+                        active = active,
+                        prepared = prepared?.bookId == bookId,
+                        preparing = state.status == NarrationStatus.PREPARING,
+                        onToggle = {
+                            if (active && state.status == NarrationStatus.PLAYING) controller.pause()
+                            else if (active && state.status == NarrationStatus.PAUSED) controller.resume()
+                            else controller.startPrepared()
+                        },
+                    )
+                    GlassIconButton(
+                        onClick = controller::nextChapter,
+                        enabled = active && state.status != NarrationStatus.PREPARING &&
+                            state.chapterCount > 0 && state.chapterIndex < state.chapterCount - 1,
+                        contentDescription = "下一章",
+                        size = 52.dp,
+                    ) {
+                        Icon(Icons.Filled.SkipNext, contentDescription = null)
+                    }
+                }
+            }
+
+            StaggeredReveal(index = 3) {
+                Row(
+                    modifier = Modifier.padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    GlassButton(onClick = controller::stop, enabled = active, filled = false) {
+                        Icon(Icons.Outlined.Stop, contentDescription = null)
+                        Text("停止", modifier = Modifier.padding(start = 6.dp))
+                    }
+                    GlassButton(onClick = onBack, enabled = isThisBook, filled = false) {
+                        Text("查看朗读正文")
+                    }
+                }
+            }
+
+            StaggeredReveal(index = 4) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 22.dp),
+                ) {
+                    Text("音色", style = MaterialTheme.typography.titleMedium)
+                    Row(
+                        modifier = Modifier.padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        NarrationVoice.entries.forEach { voice ->
+                            GlassChip(
+                                selected = state.voice == voice,
+                                onClick = { controller.setVoice(voice) },
+                                label = voice.displayName,
+                            )
+                        }
+                    }
+                    NarrationSpeedControls(
+                        playbackSpeed = state.playbackSpeed,
+                        onPlaybackSpeedChange = controller::setPlaybackSpeed,
+                        modifier = Modifier.padding(top = 22.dp),
+                    )
+                    NarrationSleepTimerControl(
+                        timer = state.sleepTimer.takeIf { isThisBook },
+                        endsAtElapsedRealtimeMs = state.sleepTimerEndsAtElapsedRealtimeMs.takeIf { isThisBook },
+                        enabled = active,
+                        onTimerChange = controller::setSleepTimer,
+                        modifier = Modifier.padding(top = 22.dp),
+                    )
+                    Text(
+                        "朗读引擎与内置女声均在本机运行，朗读时不上传正文。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** A breathing glass record that spins gently while narration is playing. */
+@Composable
+private fun NarrationDisc(playing: Boolean, modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "narration-disc")
+    val rotation by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = if (playing) 16_000 else 60_000, easing = LinearEasing),
+        ),
+        label = "disc-rotation",
+    )
+    val pulse by transition.animateFloat(
+        initialValue = 0.97f,
+        targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2_200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "disc-pulse",
+    )
+    Box(
+        modifier.size(148.dp).graphicsLayer { scaleX = pulse; scaleY = pulse },
+        contentAlignment = Alignment.Center,
+    ) {
+        // Halo ring
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    rotationZ = rotation
+                    alpha = 0.5f
+                }
+                .background(
+                    Brush.sweepGradient(
+                        listOf(
+                            Color.Transparent,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f),
+                            Color.Transparent,
+                        ),
+                    ),
+                    CircleShape,
+                ),
+        )
+        GlassSurface(
+            modifier = Modifier.fillMaxSize().padding(10.dp),
+            shape = CircleShape,
+            specular = true,
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .size(96.dp)
+                        .graphicsLayer { rotationZ = rotation }
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
+                                ),
+                            ),
+                            CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.VolumeUp,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(44.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NarrationPlayButton(
+    playing: Boolean,
+    active: Boolean,
+    prepared: Boolean,
+    preparing: Boolean,
+    onToggle: () -> Unit,
+) {
+    val transition = rememberInfiniteTransition(label = "play-glow")
+    val glow by transition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1_400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "play-glow",
+    )
+    val enabled = !preparing && (active || prepared)
+    Box(contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .size(88.dp)
+                .graphicsLayer { scaleX = glow; scaleY = glow; alpha = if (playing) 0.5f else 0.32f }
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.22f), CircleShape),
+        )
+        GlassSurface(
+            modifier = Modifier.size(72.dp),
+            shape = CircleShape,
+            specular = true,
+            shadow = true,
+        ) {
+            Box(
+                Modifier.fillMaxSize().clickable(onClick = onToggle, enabled = enabled),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = if (playing) "暂停朗读" else "开始朗读",
+                    tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.size(38.dp).clip(CircleShape),
                 )
             }
         }

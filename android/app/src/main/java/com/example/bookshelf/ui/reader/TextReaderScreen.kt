@@ -125,6 +125,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.example.bookshelf.ui.glass.GlassButton
+import com.example.bookshelf.ui.glass.GlassDialog
+import com.example.bookshelf.ui.glass.GlassSheet
+import com.example.bookshelf.ui.glass.GlassSurface
 
 @Composable
 fun TextReaderScreen(viewModel: TextReaderViewModel, onBack: () -> Unit, onOpenNarration: () -> Unit) {
@@ -323,7 +327,7 @@ fun TextReaderScreen(viewModel: TextReaderViewModel, onBack: () -> Unit, onOpenN
         LaunchedEffect(currentChapterIndex) {
             tocListState.scrollToItem(currentChapterIndex)
         }
-        ModalBottomSheet(onDismissRequest = { showToc = false }) {
+        GlassSheet(onDismissRequest = { showToc = false }) {
             Text("目录", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
             LazyColumn(state = tocListState) {
                 itemsIndexed(state.toc, key = { _, item -> item.id }) { index, item ->
@@ -380,10 +384,10 @@ private fun NarrationMenu(
             enter = fadeIn() + slideInHorizontally { it / 2 },
             exit = fadeOut() + slideOutHorizontally { it / 2 },
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+            GlassSurface(
                 shape = MaterialTheme.shapes.large,
-                tonalElevation = 3.dp,
+                specular = true,
+                shadow = true,
             ) {
                 Column(
                     horizontalAlignment = Alignment.End,
@@ -404,10 +408,10 @@ private fun NarrationMenu(
                 }
             }
         }
-        Surface(
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        GlassSurface(
             shape = MaterialTheme.shapes.large,
-            tonalElevation = 3.dp,
+            specular = true,
+            shadow = true,
         ) {
             IconButton(onClick = onToggle) {
                 Icon(
@@ -431,10 +435,10 @@ private fun ReaderTopBar(
 ) {
     val download = state.download
     val downloading = download?.status in setOf(DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING)
-    Surface(
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-        contentColor = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.fillMaxWidth(),
+    GlassSurface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+        shape = MaterialTheme.shapes.large,
+        shadow = true,
     ) {
         Row(
             Modifier.fillMaxWidth()
@@ -492,10 +496,10 @@ private fun ReaderBottomBar(
     onOpenToc: () -> Unit,
 ) {
     var slider by remember(state.chapter?.id, state.charOffset) { mutableFloatStateOf(state.chapterProgress.toFloat()) }
-    Surface(
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-        contentColor = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.fillMaxWidth(),
+    GlassSurface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+        shape = MaterialTheme.shapes.large,
+        shadow = true,
     ) {
         Column(
             Modifier.fillMaxWidth()
@@ -802,7 +806,7 @@ private fun ReaderSettingsSheet(
     onNarrationPlaybackSpeed: (Float) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    GlassSheet(onDismissRequest = onDismiss) {
         Column(
             Modifier.fillMaxWidth()
                 .verticalScroll(rememberScrollState())
@@ -860,16 +864,16 @@ fun ProgressConflictDialog(
     onRemote: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = {},
-        title = { Text("发现不同的阅读进度") },
+        title = { Text("发现不同的阅读进度", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ProgressDescription("本机进度", conflict.local)
                 ProgressDescription("服务器进度", conflict.remote)
             }
         },
-        confirmButton = { Button(onClick = onLocal) { Text("使用本机进度") } },
+        confirmButton = { GlassButton(onClick = onLocal) { Text("使用本机进度") } },
         dismissButton = {
             Row {
                 TextButton(onClick = onCancel) { Text("取消") }
@@ -981,7 +985,7 @@ private fun ReaderBackground.label() = when (this) {
 internal fun ReaderError(message: String, retry: () -> Unit, modifier: Modifier, color: Color) {
     Column(modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(message, color = color, textAlign = TextAlign.Center)
-        Button(onClick = retry) { Text("重试") }
+        GlassButton(onClick = retry) { Text("重试") }
     }
 }
 

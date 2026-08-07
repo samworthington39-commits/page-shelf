@@ -5,9 +5,23 @@
 
 package com.example.bookshelf.ui.library
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,27 +31,32 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.WifiOff
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -49,7 +68,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -73,6 +94,17 @@ import com.example.bookshelf.domain.ReadingProgress
 import com.example.bookshelf.domain.shouldWarnBeforeOpen
 import com.example.bookshelf.ui.LibraryUiState
 import com.example.bookshelf.ui.LibraryViewModel
+import com.example.bookshelf.ui.glass.GlassButton
+import com.example.bookshelf.ui.glass.GlassDialog
+import com.example.bookshelf.ui.glass.GlassIconButton
+import com.example.bookshelf.ui.glass.GlassSectionTitle
+import com.example.bookshelf.ui.glass.GlassSurface
+import com.example.bookshelf.ui.glass.GlassTextField
+import com.example.bookshelf.ui.glass.GlassTopBar
+import com.example.bookshelf.ui.glass.LiquidBackdrop
+import com.example.bookshelf.ui.glass.StaggeredReveal
+import com.example.bookshelf.ui.glass.glassPalette
+import com.example.bookshelf.ui.glass.rememberPressScale
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -87,26 +119,40 @@ fun LibraryScreen(
     var largeBook by remember { mutableStateOf<Book?>(null) }
     var searchVisible by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("书架", style = MaterialTheme.typography.headlineMedium) },
+    LiquidBackdrop(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().navigationBarsPadding()) {
+            GlassTopBar(
+                title = "书架",
+                subtitle = "Page Shelf",
                 actions = {
-                    TextButton(onClick = { searchVisible = !searchVisible; if (!searchVisible) query = "" }) { Text("搜索") }
-                    TextButton(onClick = viewModel::refresh) { Text("刷新") }
-                    TextButton(onClick = onManage) { Text("设置") }
+                    TextButton(onClick = { searchVisible = !searchVisible; if (!searchVisible) query = "" }) {
+                        Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text("搜索", modifier = Modifier.padding(start = 4.dp))
+                    }
+                    TextButton(onClick = viewModel::refresh) {
+                        Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text("刷新", modifier = Modifier.padding(start = 4.dp))
+                    }
+                    TextButton(onClick = onManage) {
+                        Icon(Icons.Outlined.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text("设置", modifier = Modifier.padding(start = 4.dp))
+                    }
                 },
             )
-        },
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            if (searchVisible) {
-                OutlinedTextField(
+            AnimatedVisibility(
+                visible = searchVisible,
+                enter = fadeIn(tween(240)) + slideInVertically(tween(280, easing = FastOutSlowInEasing)) { -it / 2 },
+                exit = fadeOut(tween(180)) + slideOutVertically(tween(200)) { -it / 2 },
+            ) {
+                GlassTextField(
                     value = query,
                     onValueChange = { query = it },
-                    placeholder = { Text("搜索书名或作者") },
+                    placeholder = "搜索书名或作者",
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
             when (val value = state) {
@@ -130,12 +176,14 @@ fun LibraryScreen(
     }
 
     largeBook?.let { book ->
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { largeBook = null },
-            title = { Text("打开大文件") },
-            text = { Text("“${book.title}”为 ${formatBytes(book.fileSize)}，首次打开可能需要更长时间。") },
+            title = { Text("打开大文件", style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Text("“${book.title}”为 ${formatBytes(book.fileSize)}，首次打开可能需要更长时间。")
+            },
             confirmButton = {
-                Button(onClick = { largeBook = null; onBookClick(book) }) { Text("继续打开") }
+                GlassButton(onClick = { largeBook = null; onBookClick(book) }) { Text("继续打开") }
             },
             dismissButton = { TextButton(onClick = { largeBook = null }) { Text("取消") } },
         )
@@ -225,21 +273,23 @@ private fun ShelfPage(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(
+        itemsIndexed(
             items = books,
-            key = Book::id,
-            contentType = { "book-row" },
-        ) { book ->
-            BookRow(
-                book = book,
-                bookRepository = bookRepository,
-                progress = progress[book.id],
-                download = downloads[book.id],
-                onClick = { onBookClick(book) },
-            )
+            key = { _, book -> book.id },
+            contentType = { _, _ -> "book-row" },
+        ) { index, book ->
+            StaggeredReveal(index = index) {
+                BookRow(
+                    book = book,
+                    bookRepository = bookRepository,
+                    progress = progress[book.id],
+                    download = downloads[book.id],
+                    onClick = { onBookClick(book) },
+                )
+            }
         }
     }
 }
@@ -247,7 +297,9 @@ private fun ShelfPage(
 @Composable
 private fun ShelfHeader(shelf: LibraryShelf, page: Int, count: Int, offline: Boolean) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -258,7 +310,31 @@ private fun ShelfHeader(shelf: LibraryShelf, page: Int, count: Int, offline: Boo
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (count > 1) Text("${page + 1} / $count", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (count > 1) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                repeat(count) { i ->
+                    val selected = i == page
+                    val scale by animateFloatAsState(
+                        targetValue = if (selected) 1f else 0.72f,
+                        animationSpec = spring(dampingRatio = 0.6f, stiffness = 500f),
+                        label = "shelf-dot-$i",
+                    )
+                    Box(
+                        Modifier
+                            .size(if (selected) 8.dp else 6.dp)
+                            .graphicsLayer { scaleX = scale; scaleY = scale }
+                            .clip(CircleShape)
+                            .background(
+                                if (selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                            ),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -271,15 +347,23 @@ private fun BookRow(
     onClick: () -> Unit,
 ) {
     val context = LocalContext.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressScale = rememberPressScale(interaction)
     val coverModel = remember(book.id, book.coverStatus, bookRepository, context) {
         if (book.coverStatus == "ready") bookRepository.coverRequest(context, book.id) else null
     }
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.small,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 1.dp),
+    val progressFraction by animateFloatAsState(
+        targetValue = (progress?.progression ?: 0f).toFloat().coerceIn(0f, 1f),
+        animationSpec = tween(700, easing = FastOutSlowInEasing),
+        label = "book-progress",
+    )
+    GlassSurface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .graphicsLayer { scaleX = pressScale; scaleY = pressScale },
+        shape = MaterialTheme.shapes.medium,
+        shadow = true,
     ) {
         Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             AsyncImage(
@@ -288,7 +372,9 @@ private fun BookRow(
                 error = ColorPainter(MaterialTheme.colorScheme.surfaceVariant),
                 fallback = ColorPainter(MaterialTheme.colorScheme.surfaceVariant),
                 placeholder = ColorPainter(MaterialTheme.colorScheme.surfaceVariant),
-                modifier = Modifier.size(width = 72.dp, height = 100.dp).clip(MaterialTheme.shapes.extraSmall),
+                modifier = Modifier
+                    .size(width = 72.dp, height = 100.dp)
+                    .clip(RoundedCornerShape(10.dp)),
                 contentScale = ContentScale.Crop,
             )
             Column(Modifier.weight(1f).height(100.dp)) {
@@ -302,7 +388,15 @@ private fun BookRow(
                     )
                     if (download?.isPermanent == true && download.status in setOf(DownloadStatus.DOWNLOADED, DownloadStatus.OUTDATED)) {
                         Spacer(Modifier.width(8.dp))
-                        Text("已下载", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            "已下载",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
                     }
                 }
                 Text(
@@ -312,13 +406,31 @@ private fun BookRow(
                     maxLines = 1,
                 )
                 Spacer(Modifier.weight(1f))
-                Text(progressSummary(book, progress), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    progressSummary(book, progress),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 if (progress != null) {
-                    Box(Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                    ) {
                         Box(
-                            Modifier.fillMaxWidth(progress.progression.toFloat().coerceIn(0f, 1f))
+                            Modifier
+                                .fillMaxWidth(progressFraction)
                                 .height(3.dp)
-                                .background(MaterialTheme.colorScheme.primary),
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            MaterialTheme.colorScheme.primary,
+                                            MaterialTheme.colorScheme.tertiary,
+                                        ),
+                                    ),
+                                ),
                         )
                     }
                 }
@@ -336,20 +448,51 @@ private fun progressSummary(book: Book, progress: ReadingProgress?): String {
 
 @Composable
 private fun LibrarySkeleton(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "skeleton")
+    val shimmer by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1_600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "skeleton-shimmer",
+    )
     LazyColumn(modifier, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         items(5) {
-            Row(
-                Modifier.fillMaxWidth().height(124.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            GlassSurface(
+                Modifier.fillMaxWidth().height(124.dp),
+                shape = MaterialTheme.shapes.medium,
+                specular = false,
+                shadow = true,
             ) {
-                Box(Modifier.size(72.dp, 100.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant))
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(Modifier.fillMaxWidth(0.72f).height(18.dp).background(MaterialTheme.colorScheme.surfaceVariant))
-                    Box(Modifier.fillMaxWidth(0.4f).height(14.dp).background(MaterialTheme.colorScheme.surfaceVariant))
+                Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    SkeletonBlock(Modifier.size(72.dp, 100.dp), RoundedCornerShape(10.dp), shimmer)
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SkeletonBlock(Modifier.fillMaxWidth(0.72f).height(18.dp), RoundedCornerShape(6.dp), shimmer)
+                        SkeletonBlock(Modifier.fillMaxWidth(0.4f).height(14.dp), RoundedCornerShape(6.dp), shimmer)
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SkeletonBlock(modifier: Modifier = Modifier, shape: RoundedCornerShape, phase: Float) {
+    val base = MaterialTheme.colorScheme.surfaceVariant
+    Box(
+        modifier
+            .clip(shape)
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(
+                        base.copy(alpha = 0.55f),
+                        base.copy(alpha = 0.9f),
+                        base.copy(alpha = 0.55f),
+                    ),
+                    start = androidx.compose.ui.geometry.Offset(phase * 400f, 0f),
+                    end = androidx.compose.ui.geometry.Offset(phase * 400f + 300f, 100f),
+                ),
+            ),
+    )
 }
 
 @Composable
@@ -366,55 +509,134 @@ private fun LockedShelf(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("请输入密码", style = MaterialTheme.typography.titleLarge)
-        Text(
-            "${shelf.name} · ${shelf.bookCount} 本",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(20.dp))
-        OutlinedTextField(
-            value = pin,
-            onValueChange = onPinChange,
-            label = { Text("四位访问密码") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { if (pin.length == 4 && !busy) onUnlock() }),
-            isError = error != null,
-            supportingText = error?.let { message -> { Text(message) } },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(12.dp))
-        Button(onClick = onUnlock, enabled = pin.length == 4 && !busy, modifier = Modifier.fillMaxWidth()) {
-            Text(if (busy) "正在验证" else "进入书架")
+        StaggeredReveal(index = 0) {
+            GlassSurface(
+                Modifier.size(84.dp),
+                shape = CircleShape,
+                specular = true,
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.Lock,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(36.dp),
+                    )
+                }
+            }
+        }
+        StaggeredReveal(index = 1) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 24.dp),
+            ) {
+                Text("请输入密码", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "${shelf.name} · ${shelf.bookCount} 本",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+        StaggeredReveal(index = 2) {
+            Column(Modifier.fillMaxWidth().padding(top = 24.dp)) {
+                GlassTextField(
+                    value = pin,
+                    onValueChange = onPinChange,
+                    label = "四位访问密码",
+                    singleLine = true,
+                    isError = error != null,
+                    supportingText = error,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { if (pin.length == 4 && !busy) onUnlock() }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(14.dp))
+                GlassButton(
+                    onClick = onUnlock,
+                    enabled = pin.length == 4 && !busy,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) {
+                    if (busy) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Text("进入书架")
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun ErrorState(message: String, retry: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.padding(24.dp), Arrangement.Center, Alignment.CenterHorizontally) {
+    Column(
+        modifier.padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        GlassSurface(Modifier.size(72.dp), shape = CircleShape, specular = true) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.WifiOff, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(30.dp))
+            }
+        }
+        Spacer(Modifier.height(16.dp))
         Text("书架暂时无法加载", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
         Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(16.dp))
-        Button(onClick = retry) { Text("重试") }
+        Spacer(Modifier.height(18.dp))
+        GlassButton(onClick = retry) { Text("重试") }
     }
 }
 
 @Composable
 private fun EmptyShelf(message: String) {
-    Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.Center, Alignment.CenterHorizontally) {
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        GlassSurface(Modifier.size(72.dp), shape = CircleShape, specular = true) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
+            }
+        }
+        Spacer(Modifier.height(16.dp))
         Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 fun EmptyLibrary(modifier: Modifier, offline: Boolean) {
-    Column(modifier.padding(24.dp), Arrangement.Center, Alignment.CenterHorizontally) {
+    Column(
+        modifier.padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        GlassSurface(Modifier.size(84.dp), shape = CircleShape, specular = true) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(
+                    if (offline) Icons.Outlined.WifiOff else Icons.Outlined.MenuBook,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(36.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(18.dp))
         Text(if (offline) "没有可离线阅读的书" else "书架还是空的", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
-        Text(if (offline) "联网后可返回完整书架。" else "服务器尚未提供书籍。", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            if (offline) "联网后可返回完整书架。" else "服务器尚未提供书籍。",
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
