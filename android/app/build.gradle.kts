@@ -14,8 +14,8 @@ android {
         applicationId = "com.example.bookshelf"
         minSdk = 26
         targetSdk = 36
-        versionCode = 16
-        versionName = "1.1.0"
+        versionCode = 17
+        versionName = "1.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
         manifestPlaceholders["appLabel"] = "页架"

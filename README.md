@@ -74,10 +74,10 @@ docker compose up -d
 
 也可以从 [Releases](https://github.com/samworthington39-commits/page-shelf/releases) 下载
 `page-shelf-<版本>-docker.zip`，解压后执行 `docker compose up -d`。固定版本部署可在 `.env` 中设置
-`PAGE_SHELF_VERSION=v1.1.0`，或直接拉取：
+`PAGE_SHELF_VERSION=v1.2.0`，或直接拉取：
 
 ```bash
-docker pull ghcr.io/samworthington39-commits/page-shelf:v1.1.0
+docker pull ghcr.io/samworthington39-commits/page-shelf:v1.2.0
 ```
 
 部署完成后，各网页界面的完整 URL 如下：
