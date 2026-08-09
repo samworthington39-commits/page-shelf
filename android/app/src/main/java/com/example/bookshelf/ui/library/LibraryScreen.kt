@@ -84,6 +84,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import com.example.bookshelf.data.repository.BookRepository
 import com.example.bookshelf.domain.Book
@@ -271,6 +272,17 @@ private fun ShelfPage(
             .sortedWith(compareByDescending<Book> { progress[it.id]?.updatedAtEpochMs ?: Long.MIN_VALUE }.thenBy { it.title })
             .toList()
     }
+    // Smooth waterfall scrolling: warm every cover before the row enters the viewport so the
+    // list never "scrolls then loads". Rows are drawn without entrance animations.
+    val context = LocalContext.current
+    val loader = SingletonImageLoader.get(context)
+    LaunchedEffect(books, bookRepository) {
+        books.forEach { book ->
+            if (book.coverStatus == "ready") {
+                loader.enqueue(bookRepository.coverRequest(context, book.id))
+            }
+        }
+    }
     if (books.isEmpty()) {
         EmptyShelf(if (query.isBlank()) "这个书架还没有书" else "没有找到匹配的书")
         return
@@ -285,16 +297,14 @@ private fun ShelfPage(
             items = books,
             key = { _, book -> book.id },
             contentType = { _, _ -> "book-row" },
-        ) { index, book ->
-            StaggeredReveal(index = index) {
-                BookRow(
-                    book = book,
-                    bookRepository = bookRepository,
-                    progress = progress[book.id],
-                    download = downloads[book.id],
-                    onClick = { onBookClick(book) },
-                )
-            }
+        ) { _, book ->
+            BookRow(
+                book = book,
+                bookRepository = bookRepository,
+                progress = progress[book.id],
+                download = downloads[book.id],
+                onClick = { onBookClick(book) },
+            )
         }
     }
 }
@@ -357,18 +367,16 @@ private fun BookRow(
     val coverModel = remember(book.id, book.coverStatus, bookRepository, context) {
         if (book.coverStatus == "ready") bookRepository.coverRequest(context, book.id) else null
     }
-    val progressFraction by animateFloatAsState(
-        targetValue = (progress?.progression ?: 0f).toFloat().coerceIn(0f, 1f),
-        animationSpec = tween(700, easing = FastOutSlowInEasing),
-        label = "book-progress",
-    )
+    val progressFraction = (progress?.progression ?: 0f).toFloat().coerceIn(0f, 1f)
     GlassSurface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .graphicsLayer { scaleX = pressScale; scaleY = pressScale },
         shape = MaterialTheme.shapes.medium,
-        shadow = true,
+        // No elevation shadow: dozens of shadowed rows scrolling together are a major
+        // source of frame drops. The translucent fill + edge light keeps the glass look.
+        shadow = false,
     ) {
         Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             AsyncImage(
