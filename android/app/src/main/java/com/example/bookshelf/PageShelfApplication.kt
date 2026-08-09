@@ -2,6 +2,9 @@ package com.example.bookshelf
 
 import android.app.Application
 import androidx.core.content.edit
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.example.bookshelf.data.local.AppDatabase
 import com.example.bookshelf.data.remote.ApiFactory
 import com.example.bookshelf.data.remote.BooksApi
@@ -16,14 +19,33 @@ import com.example.bookshelf.data.settings.AppSettingsStore
 import com.example.bookshelf.data.settings.ShelfAccessStore
 import com.example.bookshelf.narration.NarrationController
 import java.util.UUID
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class PageShelfApplication : Application() {
     lateinit var container: AppContainer
         private set
 
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // Reading progress must reach the server as soon as the app returns to the
+        // foreground: WorkManager alone can leave ready items stuck for hours (delayed
+        // retries + KEEP policy used to drop immediate requests).
+        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) {
+                applicationScope.launch {
+                    if (container.credentials.bearerToken() == null) {
+                        runCatching { container.auth.autoLogin() }.getOrNull() ?: return@launch
+                    }
+                    container.progress.syncNow()
+                }
+            }
+        })
     }
 }
 

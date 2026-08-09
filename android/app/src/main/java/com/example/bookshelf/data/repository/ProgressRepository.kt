@@ -1,6 +1,7 @@
 package com.example.bookshelf.data.repository
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
@@ -20,10 +21,20 @@ import com.example.bookshelf.domain.ReadingProgress
 import com.example.bookshelf.domain.calculateProgression
 import com.example.bookshelf.domain.hasMeaningfulProgressConflict
 import com.example.bookshelf.worker.ProgressSyncWorker
+import retrofit2.HttpException
 import java.time.Instant
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class ProgressRepository(
     context: Context,
@@ -34,6 +45,10 @@ class ProgressRepository(
     private val settings: AppSettingsStore,
 ) {
     private val workManager = WorkManager.getInstance(context.applicationContext)
+
+    private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val syncMutex = Mutex()
+    private var syncJob: Job? = null
 
     fun observeAll(): Flow<List<ReadingProgress>> = progressDao.observeAll().map { list ->
         list.map(ReadingProgressEntity::toDomain)
@@ -109,9 +124,11 @@ class ProgressRepository(
     suspend fun applySyncPreference(enabled: Boolean) {
         if (enabled) {
             progressDao.all().forEach { progress -> upsertSyncEntry(progress.bookId) }
-            scheduleSync(0, ExistingWorkPolicy.KEEP)
+            scheduleSync(0, ExistingWorkPolicy.REPLACE)
+            syncNow()
         } else {
             queueDao.clear()
+            syncJob?.cancel()
             workManager.cancelUniqueWork(PROGRESS_SYNC_WORK_NAME)
         }
     }
@@ -147,25 +164,30 @@ class ProgressRepository(
 
     private suspend fun enqueue(bookId: String) {
         upsertSyncEntry(bookId)
-        scheduleSync(0, ExistingWorkPolicy.KEEP)
+        // REPLACE: a fresh save must cancel any stale delayed retry and run right away.
+        // ExistingWorkPolicy.KEEP used to drop these immediate requests whenever an
+        // earlier failure had queued a long backoff, stalling sync for up to 6 hours.
+        scheduleSync(0, ExistingWorkPolicy.REPLACE)
+        syncNow()
     }
 
     private suspend fun upsertSyncEntry(bookId: String) {
-        val existing = queueDao.byBook(bookId)
+        // A fresh save resets the backoff so the next attempt happens immediately instead
+        // of inheriting an old retry window that could be hours away.
         queueDao.upsert(
             ProgressSyncEntity(
                 bookId = bookId,
-                attempts = existing?.attempts ?: 0,
+                attempts = 0,
                 nextAttemptEpochMs = System.currentTimeMillis(),
                 updatedAtEpochMs = System.currentTimeMillis(),
             )
         )
     }
 
-    suspend fun syncPending() {
+    suspend fun syncPending() = syncMutex.withLock {
         if (!settings.state.value.progressSyncEnabled) {
             queueDao.clear()
-            return
+            return@withLock
         }
         queueDao.ready(System.currentTimeMillis()).forEach { item ->
             val progress = progressDao.byBook(item.bookId)?.toDomain()
@@ -174,19 +196,52 @@ class ProgressRepository(
                 return@forEach
             }
             runCatching { upload(progress) }
-                .onSuccess { queueDao.delete(item.bookId) }
-                .onFailure {
-                    val attempts = item.attempts + 1
-                    val delayMillis = (15_000L * (1L shl attempts.coerceAtMost(10))).coerceAtMost(6 * 60 * 60 * 1000L)
-                    queueDao.upsert(
-                        item.copy(
-                            attempts = attempts,
-                            nextAttemptEpochMs = System.currentTimeMillis() + delayMillis,
-                            updatedAtEpochMs = System.currentTimeMillis(),
-                        )
-                    )
-                    scheduleSync(delayMillis)
+                .onSuccess {
+                    queueDao.delete(item.bookId)
+                    Log.i(SYNC_LOG_TAG, "uploaded ${item.bookId}")
                 }
+                .onFailure {
+                    // A deliberate cancellation (e.g. a newer save replaced this run) must
+                    // propagate instead of being counted as an upload failure.
+                    if (it is CancellationException) throw it
+                    val code = (it as? HttpException)?.code()
+                    if (code != null && code in PERMANENT_HTTP_CODES) {
+                        // 4xx like 404 (book removed from server) or 409 (PDF changed) will
+                        // never succeed; retrying them only clogs the queue with backoff.
+                        queueDao.delete(item.bookId)
+                        Log.w(SYNC_LOG_TAG, "dropped ${item.bookId} permanent HTTP $code")
+                    } else {
+                        val attempts = item.attempts + 1
+                        val delayMillis = (15_000L * (1L shl attempts.coerceAtMost(10))).coerceAtMost(6 * 60 * 60 * 1000L)
+                        queueDao.upsert(
+                            item.copy(
+                                attempts = attempts,
+                                nextAttemptEpochMs = System.currentTimeMillis() + delayMillis,
+                                updatedAtEpochMs = System.currentTimeMillis(),
+                            )
+                        )
+                        Log.w(SYNC_LOG_TAG, "upload failed ${item.bookId} attempts=$attempts ${it.javaClass.simpleName}" + (code?.let { " http=$it" } ?: ""))
+                        scheduleSync(delayMillis)
+                    }
+                }
+        }
+    }
+
+    /** Best-effort, non-blocking flush used after saves and when the app returns to the
+     *  foreground. Failures are handled by the queue backoff and WorkManager, never here,
+     *  so a dead server can never block page turns or narration. */
+    fun syncNow() {
+        if (!settings.state.value.progressSyncEnabled) return
+        syncJob?.cancel()
+        syncJob = syncScope.launch {
+            delay(SYNC_COALESCE_MILLIS)
+            try {
+                syncPending()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                Log.w(SYNC_LOG_TAG, "syncNow failed: ${error.javaClass.simpleName}")
+            }
         }
     }
 
@@ -203,6 +258,10 @@ class ProgressRepository(
 
     private companion object {
         const val PROGRESS_SYNC_WORK_NAME = "progress-sync"
+        const val SYNC_COALESCE_MILLIS = 150L
+        const val SYNC_LOG_TAG = "PageShelfSync"
+        // Server-side rejections that will never succeed on retry.
+        val PERMANENT_HTTP_CODES = setOf(400, 401, 403, 404, 409, 422)
     }
 }
 
