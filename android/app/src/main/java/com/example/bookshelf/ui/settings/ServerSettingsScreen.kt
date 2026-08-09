@@ -41,6 +41,7 @@ import com.example.bookshelf.ui.SettingsViewModel
 import com.example.bookshelf.ui.glass.GlassButton
 import com.example.bookshelf.ui.glass.GlassSurface
 import com.example.bookshelf.ui.glass.GlassTextField
+import com.example.bookshelf.ui.glass.FloatingCapsuleContainer
 import com.example.bookshelf.ui.glass.GlassTopBar
 import com.example.bookshelf.ui.glass.LiquidBackdrop
 import com.example.bookshelf.ui.glass.StaggeredReveal
@@ -56,18 +57,22 @@ fun ServerSettingsScreen(
         if (state.status is ConnectionStatus.Success) onConnected()
     }
     LiquidBackdrop(Modifier.fillMaxSize()) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .navigationBarsPadding()
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        FloatingCapsuleContainer(
+            modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+            topBar = {
+                GlassTopBar(
+                    title = if (state.configured) "服务器设置" else "连接服务器",
+                    subtitle = "连接你的私人书库",
+                    onBack = onBack,
+                )
+            },
         ) {
-            GlassTopBar(
-                title = if (state.configured) "服务器设置" else "连接服务器",
-                subtitle = "连接你的私人书库",
-                onBack = onBack,
-            )
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
             StaggeredReveal(index = 0) {
                 GlassSurface(
                     modifier = Modifier
@@ -185,6 +190,7 @@ fun ServerSettingsScreen(
                     }
                 }
             }
+        }
         }
     }
 }

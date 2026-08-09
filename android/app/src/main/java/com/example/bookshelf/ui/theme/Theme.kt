@@ -25,15 +25,15 @@ import com.example.bookshelf.domain.AppThemeMode
  * translucent enough to feel alive, but opaque enough that body text keeps strong contrast.
  */
 object GlassTokens {
-    // Light: warm paper
+    // Light: warm paper (matches backend login --paper / --card), green-tinted edges
     val lightBackdropBase = Color(0xFFF2EDDF)
     val lightBackdropTop = Color(0xFFF7F2E7)
-    val lightGlassFill = Color(0xF2FDFAF2)          // ~95% warm white frosted glass
-    val lightGlassFillStrong = Color(0xF8FDFAF2)
-    val lightGlassStroke = Color(0x1F6B5A3F)     // soft warm outline
-    val lightGlassStrokeStrong = Color(0x336B5A3F)
-    val lightGlassHighlight = Color(0x66FFFFFF)     // subtle specular
-    val lightGlassShadow = Color(0x1A6B5A3F)
+    val lightGlassFill = Color(0xD9FDFAF2)          // ~85% translucent frosted glass (Liquid Glass shows content behind)
+    val lightGlassFillStrong = Color(0xF2FDFAF2)
+    val lightGlassStroke = Color(0x332F5D4F)     // forest-green hairline edge (勾边)
+    val lightGlassStrokeStrong = Color(0x552F5D4F)
+    val lightGlassHighlight = Color(0x99FFFFFF)     // bright specular light layer
+    val lightGlassShadow = Color(0x262F5D4F)
 
     // Dark: deep warm charcoal
     val darkBackdropBase = Color(0xFF171310)
@@ -59,14 +59,14 @@ object GlassTokens {
 }
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF2F5D4F),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFD3E4DA),
-    onPrimaryContainer = Color(0xFF0F2A22),
-    secondary = Color(0xFF9A6A35),
+    primary = Color(0xFFC77932),          // backend login amber (暖黄为主)
+    onPrimary = Color(0xFF20160D),
+    primaryContainer = Color(0xFFF2DDBF),
+    onPrimaryContainer = Color(0xFF3C2407),
+    secondary = Color(0xFF2F5D4F),        // forest green
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFF2DDBF),
-    onSecondaryContainer = Color(0xFF3C2407),
+    secondaryContainer = Color(0xFFD3E4DA),
+    onSecondaryContainer = Color(0xFF0F2A22),
     tertiary = Color(0xFF77654F),
     onTertiary = Color(0xFFFFFFFF),
     tertiaryContainer = Color(0xFFEADECB),
@@ -82,8 +82,8 @@ private val LightColors = lightColorScheme(
     surfaceVariant = Color(0xFFE9E1D2),
     onSurfaceVariant = Color(0xFF4A443B),
     surfaceContainerHighest = Color(0xFFEDE5D6),
-    outline = Color(0xFFB7AD9C),
-    outlineVariant = Color(0xFFD8CFBF),
+    outline = Color(0xFF6E8A7B),          // green-tinted outline
+    outlineVariant = Color(0xFFCBD8CE),
     scrim = Color(0x6617130E),
     inverseSurface = Color(0xFF302B24),
     inverseOnSurface = Color(0xFFF7F1E6),

@@ -45,6 +45,7 @@ import com.example.bookshelf.ui.glass.GlassChip
 import com.example.bookshelf.ui.glass.GlassDialog
 import com.example.bookshelf.ui.glass.GlassSectionTitle
 import com.example.bookshelf.ui.glass.GlassSurface
+import com.example.bookshelf.ui.glass.FloatingCapsuleContainer
 import com.example.bookshelf.ui.glass.GlassTopBar
 import com.example.bookshelf.ui.glass.LiquidBackdrop
 import com.example.bookshelf.ui.glass.StaggeredReveal
@@ -58,19 +59,21 @@ fun ManageScreen(viewModel: ManageViewModel, onBack: () -> Unit, onServerSetting
     var deleteProgress by remember { mutableStateOf(false) }
     var confirmBatch by remember { mutableStateOf(false) }
     LiquidBackdrop(Modifier.fillMaxSize()) {
-        LazyColumn(
+        FloatingCapsuleContainer(
             modifier = Modifier.fillMaxSize().navigationBarsPadding(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            item {
+            topBar = {
                 GlassTopBar(
                     title = "管理与设置",
                     subtitle = "下载、外观与服务器",
                     onBack = onBack,
                 )
-            }
-
+            },
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
             item {
                 GlassSurface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, shadow = true) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -175,6 +178,7 @@ fun ManageScreen(viewModel: ManageViewModel, onBack: () -> Unit, onServerSetting
                         )
                     }
                 }
+            }
             }
         }
     }

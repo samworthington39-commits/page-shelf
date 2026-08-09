@@ -7,16 +7,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,12 +41,17 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -52,10 +59,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import kotlin.math.roundToInt
 
 /**
- * A floating glass top bar. Rounded, translucent, edged in light, with the status bar inset
- * handled for edge-to-edge drawing.
+ * A floating Liquid Glass capsule top bar. The capsule sits BELOW the system status bar (the
+ * inset is applied outside the glass), so the bar's background never covers the system top
+ * bar. Place it over scrollable content to let content pass underneath the translucent
+ * material.
  */
 @Composable
 fun GlassTopBar(
@@ -68,6 +78,7 @@ fun GlassTopBar(
     GlassSurface(
         modifier = modifier
             .fillMaxWidth()
+            .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(30.dp),
         shadow = true,
@@ -75,7 +86,6 @@ fun GlassTopBar(
         Row(
             Modifier
                 .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -352,3 +362,37 @@ fun GlassIcon(imageVector: ImageVector, contentDescription: String?, tint: Color
     androidx.compose.material3.Icon(imageVector = imageVector, contentDescription = contentDescription, tint = tint, modifier = modifier)
 }
 
+/**
+ * A scaffold that floats a [GlassTopBar]-style capsule over scrollable content. The content
+ * is inset below the capsule and scrolls behind it, so the translucent material composites
+ * the moving content every frame — the Liquid Glass "responds to scroll" behaviour.
+ */
+@Composable
+fun FloatingCapsuleContainer(
+    modifier: Modifier = Modifier,
+    contentPadding: Dp = 8.dp,
+    topBar: @Composable () -> Unit,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val density = LocalDensity.current
+    val statusTop = WindowInsets.statusBars.getTop(density)
+    var barHeightPx by remember {
+        mutableIntStateOf((statusTop + with(density) { 64.dp.toPx() }).roundToInt())
+    }
+    Box(modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(top = with(density) { barHeightPx.toDp() } + contentPadding),
+        ) {
+            content()
+        }
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .onGloballyPositioned { barHeightPx = it.size.height },
+        ) {
+            topBar()
+        }
+    }
+}

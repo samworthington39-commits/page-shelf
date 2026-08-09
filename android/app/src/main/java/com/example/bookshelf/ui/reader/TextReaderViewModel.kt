@@ -134,25 +134,32 @@ class TextReaderViewModel(
         if (index !in current.toc.indices || current.chapters[index] != null) return
         if (windowRepairJob?.isActive == true && windowRepairIndex == index) return
         val book = current.book ?: return
-        val summary = current.toc[index]
+        // Waterfall scrolling: pull the next few chapters together so the stream never runs
+        // dry at the bottom of the viewport — the reader keeps flowing instead of pausing.
+        val targets = (index..minOf(index + CHAPTER_SCROLL_LOOKAHEAD, current.toc.lastIndex))
+            .filter { it in current.toc.indices && current.chapters[it] == null }
+        if (targets.isEmpty()) return
         windowRepairJob?.cancel()
         windowRepairIndex = index
-        Log.i(READER_LOG_TAG, "ensureChapter index=$index")
+        Log.i(READER_LOG_TAG, "ensureChapter lookahead ${targets.first()}..${targets.last()}")
         windowRepairJob = viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                withTimeout(CHAPTER_ENSURE_TIMEOUT_MILLIS) {
-                    container.textReader.chapter(bookId, summary.id, book.fingerprint)
-                }
-            }
-                .onSuccess { chapter ->
-                    Log.i(READER_LOG_TAG, "ensureChapter ready index=$index")
-                    mergeChapterWindow(mapOf(index to chapter))
-                }
-                .onFailure { error ->
-                    if (error !is CancellationException) {
-                        Log.w(READER_LOG_TAG, "ensureChapter failed index=$index type=${error.javaClass.simpleName}")
+            val results = targets.associateWith { target ->
+                runCatching {
+                    withTimeout(CHAPTER_ENSURE_TIMEOUT_MILLIS) {
+                        container.textReader.chapter(bookId, current.toc[target].id, book.fingerprint)
                     }
                 }
+            }
+            val loaded = results.mapNotNull { (target, result) -> result.getOrNull()?.let { target to it } }.toMap()
+            if (loaded.isNotEmpty()) {
+                Log.i(READER_LOG_TAG, "ensureChapter ready ${loaded.keys.minOrNull()}..${loaded.keys.maxOrNull()}")
+                mergeChapterWindow(loaded)
+            }
+            results.forEach { (target, result) ->
+                result.exceptionOrNull()
+                    ?.takeIf { it !is CancellationException }
+                    ?.let { Log.w(READER_LOG_TAG, "ensureChapter failed index=$target type=${it.javaClass.simpleName}") }
+            }
             if (windowRepairIndex == index) {
                 windowRepairIndex = null
                 windowRepairJob = null
@@ -553,3 +560,4 @@ private fun Throwable.readerMessage(fallback: String): String = when (this) {
 
 private const val READER_LOG_TAG = "PageShelfReader"
 private const val CHAPTER_ENSURE_TIMEOUT_MILLIS = 6_000L
+private const val CHAPTER_SCROLL_LOOKAHEAD = 3

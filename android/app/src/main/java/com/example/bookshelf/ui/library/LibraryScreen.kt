@@ -100,6 +100,7 @@ import com.example.bookshelf.ui.glass.GlassIconButton
 import com.example.bookshelf.ui.glass.GlassSectionTitle
 import com.example.bookshelf.ui.glass.GlassSurface
 import com.example.bookshelf.ui.glass.GlassTextField
+import com.example.bookshelf.ui.glass.FloatingCapsuleContainer
 import com.example.bookshelf.ui.glass.GlassTopBar
 import com.example.bookshelf.ui.glass.LiquidBackdrop
 import com.example.bookshelf.ui.glass.StaggeredReveal
@@ -120,11 +121,13 @@ fun LibraryScreen(
     var searchVisible by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     LiquidBackdrop(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().navigationBarsPadding()) {
-            GlassTopBar(
-                title = "书架",
-                subtitle = "Page Shelf",
-                actions = {
+        FloatingCapsuleContainer(
+            modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+            topBar = {
+                GlassTopBar(
+                    title = "书架",
+                    subtitle = "Page Shelf",
+                    actions = {
                     TextButton(onClick = { searchVisible = !searchVisible; if (!searchVisible) query = "" }) {
                         Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(18.dp))
                         Text("搜索", modifier = Modifier.padding(start = 4.dp))
@@ -137,8 +140,10 @@ fun LibraryScreen(
                         Icon(Icons.Outlined.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
                         Text("设置", modifier = Modifier.padding(start = 4.dp))
                     }
-                },
-            )
+                    },
+                )
+            },
+        ) {
             AnimatedVisibility(
                 visible = searchVisible,
                 enter = fadeIn(tween(240)) + slideInVertically(tween(280, easing = FastOutSlowInEasing)) { -it / 2 },

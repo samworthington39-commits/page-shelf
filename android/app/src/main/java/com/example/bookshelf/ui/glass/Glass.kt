@@ -212,8 +212,27 @@ fun GlassSurface(
             .clip(shape)
             .background(fill)
             .then(if (specular) Modifier.background(sheen, shape) else Modifier)
+            // Liquid Glass edges are defined by refracted light, not a hard outline. The
+            // stroke stays a hairline at low alpha (green in light mode) so it reads as an
+            // edge glow while content keeps strong separation.
             .border(borderWidth, palette.stroke, shape),
     ) {
+        // Bright rim-light layer at the top edge — the "strong light layer" that makes the
+        // surface feel like a thin sheet of glass lit from above.
+        Box(
+            Modifier
+                .matchParentSize()
+                .clip(shape)
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0f to palette.highlight,
+                            0.18f to palette.highlight.copy(alpha = palette.highlight.alpha * 0.35f),
+                            1f to Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
             content()
         }

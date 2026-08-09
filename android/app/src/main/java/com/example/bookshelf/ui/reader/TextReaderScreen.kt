@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -436,13 +437,16 @@ private fun ReaderTopBar(
     val download = state.download
     val downloading = download?.status in setOf(DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING)
     GlassSurface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+        // The bar's glass background never covers the system status bar; the capsule floats below it.
+        modifier = Modifier
+            .statusBarsPadding()
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         shape = MaterialTheme.shapes.large,
         shadow = true,
     ) {
         Row(
             Modifier.fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
