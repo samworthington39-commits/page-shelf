@@ -56,6 +56,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -89,9 +90,16 @@ import com.example.bookshelf.ui.ReaderUiState
 import com.example.bookshelf.ui.ReaderViewModel
 import com.example.bookshelf.ui.library.formatBytes
 import com.example.bookshelf.ui.glass.GlassButton
+import com.example.bookshelf.ui.glass.GlassBackdrop
 import com.example.bookshelf.ui.glass.GlassDialog
+import com.example.bookshelf.ui.glass.GlassMaterial
 import com.example.bookshelf.ui.glass.GlassSheet
 import com.example.bookshelf.ui.glass.GlassSurface
+import com.example.bookshelf.ui.glass.LocalGlassBackdrop
+import com.example.bookshelf.ui.glass.LocalGlassMotionInvalidation
+import com.example.bookshelf.ui.glass.captureGlassBackdrop
+import com.example.bookshelf.ui.glass.rememberGlassBackdrop
+import com.example.bookshelf.ui.glass.rememberGlassVisibilityPulse
 import java.io.File
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -104,6 +112,7 @@ fun PdfReaderScreen(viewModel: ReaderViewModel, onBack: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val localPath = state.download?.localPath
     val appDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val glassBackdrop = rememberGlassBackdrop()
     BackHandler { viewModel.exit(onBack) }
     PersistOnBackground(viewModel::persistNow)
     when {
@@ -116,6 +125,7 @@ fun PdfReaderScreen(viewModel: ReaderViewModel, onBack: () -> Unit) {
                 initialPageIndex = state.initialPageIndex,
                 navigation = state.navigation,
                 download = state.download,
+                glassBackdrop = glassBackdrop,
                 onPageChanged = viewModel::onPageChanged,
                 onBack = { viewModel.exit(onBack) },
                 onTheme = { viewModel.setTheme(if (appDark) AppThemeMode.LIGHT else AppThemeMode.DARK) },
@@ -126,12 +136,14 @@ fun PdfReaderScreen(viewModel: ReaderViewModel, onBack: () -> Unit) {
         else -> DownloadGate(state.download, onBack = { viewModel.exit(onBack) }, onRetry = viewModel::retryDownload)
     }
     state.conflict?.let { conflict ->
-        ProgressConflictDialog(
-            conflict,
-            onLocal = { viewModel.resolveConflict(true) },
-            onRemote = { viewModel.resolveConflict(false) },
-            onCancel = { viewModel.exit(onBack) },
-        )
+        CompositionLocalProvider(LocalGlassBackdrop provides glassBackdrop) {
+            ProgressConflictDialog(
+                conflict,
+                onLocal = { viewModel.resolveConflict(true) },
+                onRemote = { viewModel.resolveConflict(false) },
+                onCancel = { viewModel.exit(onBack) },
+            )
+        }
     }
 }
 
@@ -143,6 +155,7 @@ private fun PdfDocument(
     initialPageIndex: Int,
     navigation: List<PdfNavigationItem>,
     download: DownloadState?,
+    glassBackdrop: GlassBackdrop,
     onPageChanged: (Int, Int, Double, String) -> Unit,
     onBack: () -> Unit,
     onTheme: () -> Unit,
@@ -168,6 +181,7 @@ private fun PdfDocument(
     var currentPage by rememberSaveable(key) { mutableIntStateOf(initialPageIndex.coerceIn(0, pageCount - 1)) }
     var mode by rememberSaveable { mutableStateOf(PdfReaderMode.SINGLE_PAGE) }
     var fitMode by rememberSaveable { mutableStateOf(FitMode.PAGE) }
+    val chromePulse = rememberGlassVisibilityPulse(controlsVisible)
     val continuousState = rememberLazyListState(initialFirstVisibleItemIndex = currentPage)
     val pager = rememberPagerState(initialPage = currentPage, pageCount = { pageCount })
     val scope = rememberCoroutineScope()
@@ -197,86 +211,102 @@ private fun PdfDocument(
         onPageChanged(currentPage, pageCount, 0.0, mode.name.lowercase())
     }
 
-    Box(
-        Modifier.fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .pointerInput(mode) {
-            if (mode == PdfReaderMode.CONTINUOUS) {
-                detectTapGestures { point ->
-                    if (point.x in size.width * 0.25f..size.width * 0.75f) controlsVisible = !controlsVisible
-                }
-            }
-        },
-    ) {
-        if (mode == PdfReaderMode.CONTINUOUS) {
-            LazyColumn(
-                state = continuousState,
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(pageCount, key = { it }) { index ->
-                    ZoomablePdfPage(session, index, fitMode, Modifier.fillMaxWidth())
-                }
-            }
-        } else {
-            HorizontalPager(
-                state = pager,
-                beyondViewportPageCount = 1,
-                key = { page -> page },
-                modifier = Modifier.fillMaxSize().pointerInput(key, controlsVisible) {
-                    detectTapGestures { point ->
-                        when {
-                            point.x < size.width * 0.25f && currentPage > 0 -> jumpTo(currentPage - 1)
-                            point.x > size.width * 0.75f && currentPage < pageCount - 1 -> jumpTo(currentPage + 1)
-                            point.x in size.width * 0.25f..size.width * 0.75f -> controlsVisible = !controlsVisible
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .captureGlassBackdrop(glassBackdrop)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .pointerInput(mode) {
+                    if (mode == PdfReaderMode.CONTINUOUS) {
+                        detectTapGestures { point ->
+                            if (point.x in size.width * 0.25f..size.width * 0.75f) {
+                                controlsVisible = !controlsVisible
+                            }
                         }
                     }
                 },
-            ) { index -> ZoomablePdfPage(session, index, fitMode, Modifier.fillMaxSize()) }
+        ) {
+            if (mode == PdfReaderMode.CONTINUOUS) {
+                LazyColumn(
+                    state = continuousState,
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(pageCount, key = { it }) { index ->
+                        ZoomablePdfPage(session, index, fitMode, Modifier.fillMaxWidth())
+                    }
+                }
+            } else {
+                HorizontalPager(
+                    state = pager,
+                    beyondViewportPageCount = 1,
+                    key = { page -> page },
+                    modifier = Modifier.fillMaxSize().pointerInput(key, controlsVisible) {
+                        detectTapGestures { point ->
+                            when {
+                                point.x < size.width * 0.25f && currentPage > 0 -> jumpTo(currentPage - 1)
+                                point.x > size.width * 0.75f && currentPage < pageCount - 1 -> jumpTo(currentPage + 1)
+                                point.x in size.width * 0.25f..size.width * 0.75f -> controlsVisible = !controlsVisible
+                            }
+                        }
+                    },
+                ) { index -> ZoomablePdfPage(session, index, fitMode, Modifier.fillMaxSize()) }
+            }
         }
 
-        AnimatedVisibility(
-            visible = controlsVisible,
-            enter = fadeIn() + slideInVertically { -it / 2 },
-            exit = fadeOut() + slideOutVertically { -it / 2 },
-            modifier = Modifier.align(Alignment.TopCenter),
+        CompositionLocalProvider(
+            LocalGlassBackdrop provides glassBackdrop,
+            LocalGlassMotionInvalidation provides chromePulse,
         ) {
-            PdfTopBar(title, download, onBack, onTheme, onSave, onPause, { showSettings = true })
-        }
-        AnimatedVisibility(
-            visible = controlsVisible,
-            enter = fadeIn() + slideInVertically { it / 2 },
-            exit = fadeOut() + slideOutVertically { it / 2 },
-            modifier = Modifier.align(Alignment.BottomCenter),
-        ) {
-            PdfBottomBar(
-                currentPage = currentPage,
-                pageCount = pageCount,
-                hasToc = navigation.isNotEmpty(),
-                onOpenToc = { showBookmarks = true },
-                onPrevious = { jumpTo(currentPage - 1) },
-                onNext = { jumpTo(currentPage + 1) },
-                onSeek = ::jumpTo,
-            )
+            AnimatedVisibility(
+                visible = controlsVisible,
+                enter = fadeIn() + slideInVertically { -it / 2 },
+                exit = fadeOut() + slideOutVertically { -it / 2 },
+                modifier = Modifier.align(Alignment.TopCenter),
+            ) {
+                PdfTopBar(title, download, onBack, onTheme, onSave, onPause, { showSettings = true })
+            }
+            AnimatedVisibility(
+                visible = controlsVisible,
+                enter = fadeIn() + slideInVertically { it / 2 },
+                exit = fadeOut() + slideOutVertically { it / 2 },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
+                PdfBottomBar(
+                    currentPage = currentPage,
+                    pageCount = pageCount,
+                    hasToc = navigation.isNotEmpty(),
+                    onOpenToc = { showBookmarks = true },
+                    onPrevious = { jumpTo(currentPage - 1) },
+                    onNext = { jumpTo(currentPage + 1) },
+                    onSeek = ::jumpTo,
+                )
+            }
         }
     }
 
     if (showSettings) {
-        GlassSheet(onDismissRequest = { showSettings = false }) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("PDF 阅读设置", style = MaterialTheme.typography.titleLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PdfReaderMode.entries.forEach { value ->
-                        FilterChip(
-                            selected = mode == value,
-                            onClick = { mode = value; jumpTo(currentPage) },
-                            label = { Text(if (value == PdfReaderMode.SINGLE_PAGE) "左右翻页" else "上下滑动") },
-                        )
+        CompositionLocalProvider(LocalGlassBackdrop provides glassBackdrop) {
+            GlassSheet(
+                onDismissRequest = { showSettings = false },
+                material = GlassMaterial.ReaderChrome,
+            ) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("PDF 阅读设置", style = MaterialTheme.typography.titleLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PdfReaderMode.entries.forEach { value ->
+                            FilterChip(
+                                selected = mode == value,
+                                onClick = { mode = value; jumpTo(currentPage) },
+                                label = { Text(if (value == PdfReaderMode.SINGLE_PAGE) "左右翻页" else "上下滑动") },
+                            )
+                        }
                     }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FitMode.entries.forEach { value ->
-                        FilterChip(selected = fitMode == value, onClick = { fitMode = value }, label = { Text(if (value == FitMode.PAGE) "适合页面" else "适合宽度") })
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FitMode.entries.forEach { value ->
+                            FilterChip(selected = fitMode == value, onClick = { fitMode = value }, label = { Text(if (value == FitMode.PAGE) "适合页面" else "适合宽度") })
+                        }
                     }
                 }
             }
@@ -305,7 +335,9 @@ private fun PdfTopBar(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp),
         shape = MaterialTheme.shapes.large,
-        shadow = true,
+        material = GlassMaterial.ReaderChrome,
+        borderWidth = 1.1.dp,
+        shadow = false,
     ) {
     Row(
         Modifier.fillMaxWidth()
@@ -362,7 +394,9 @@ private fun PdfBottomBar(
     GlassSurface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
         shape = MaterialTheme.shapes.large,
-        shadow = true,
+        material = GlassMaterial.ReaderChrome,
+        borderWidth = 1.1.dp,
+        shadow = false,
     ) {
     Column(
         Modifier.fillMaxWidth()

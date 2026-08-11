@@ -67,6 +67,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -128,8 +129,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.example.bookshelf.ui.glass.GlassButton
 import com.example.bookshelf.ui.glass.GlassDialog
+import com.example.bookshelf.ui.glass.GlassMaterial
 import com.example.bookshelf.ui.glass.GlassSheet
 import com.example.bookshelf.ui.glass.GlassSurface
+import com.example.bookshelf.ui.glass.LocalGlassBackdrop
+import com.example.bookshelf.ui.glass.LocalGlassMotionInvalidation
+import com.example.bookshelf.ui.glass.captureGlassBackdrop
+import com.example.bookshelf.ui.glass.rememberGlassBackdrop
+import com.example.bookshelf.ui.glass.rememberGlassVisibilityPulse
 
 @Composable
 fun TextReaderScreen(viewModel: TextReaderViewModel, onBack: () -> Unit, onOpenNarration: () -> Unit) {
@@ -146,6 +153,10 @@ fun TextReaderScreen(viewModel: TextReaderViewModel, onBack: () -> Unit, onOpenN
     val appDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val palette = readerPalette(state.preferences.background, appDark)
     val readerBusy = state.loading || state.chapterLoading || state.layoutLoading
+    val glassBackdrop = rememberGlassBackdrop()
+    val chromePulse = rememberGlassVisibilityPulse(
+        active = controlsVisible && state.chapter != null && !readerBusy,
+    )
     BackHandler { viewModel.exit(onBack) }
     PersistOnBackground(viewModel::persistNow)
     ImmersiveSystemBars(state.chapter != null && !readerBusy && !showSettings && !showToc, controlsVisible)
@@ -161,11 +172,14 @@ fun TextReaderScreen(viewModel: TextReaderViewModel, onBack: () -> Unit, onOpenN
         if (!controlsVisible) narrationMenuExpanded = false
     }
 
-    Box(
-        Modifier.fillMaxSize()
-            .background(palette.background),
-    ) {
-        when {
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .captureGlassBackdrop(glassBackdrop)
+                .background(palette.background),
+        ) {
+            when {
             state.loading || (state.chapterLoading && state.chapter == null) -> ReaderLoadingScreen(
                 message = "正在加载中",
                 detail = if (state.preloadTotal > 0) "正在准备当前章节与前后 5 章" else "正在连接书库并读取目录",
@@ -234,93 +248,101 @@ fun TextReaderScreen(viewModel: TextReaderViewModel, onBack: () -> Unit, onOpenN
                     )
                 }
             }
+            }
         }
 
-        AnimatedVisibility(
-            visible = controlsVisible && state.chapter != null && !readerBusy,
-            enter = fadeIn() + slideInVertically { -it / 2 },
-            exit = fadeOut() + slideOutVertically { -it / 2 },
-            modifier = Modifier.align(Alignment.TopCenter),
+        CompositionLocalProvider(
+            LocalGlassBackdrop provides glassBackdrop,
+            LocalGlassMotionInvalidation provides chromePulse,
         ) {
-            ReaderTopBar(
-                state = state,
-                onBack = { viewModel.exit(onBack) },
-                onTheme = { viewModel.setTheme(if (appDark) AppThemeMode.LIGHT else AppThemeMode.DARK) },
-                onSave = viewModel::saveOffline,
-                onPause = viewModel::pauseDownload,
-                onSettings = { showSettings = true },
-            )
-        }
-        AnimatedVisibility(
-            visible = controlsVisible && state.chapter != null && !readerBusy,
-            enter = fadeIn() + slideInVertically { it / 2 },
-            exit = fadeOut() + slideOutVertically { it / 2 },
-            modifier = Modifier.align(Alignment.BottomCenter),
-        ) {
-            ReaderBottomBar(
-                state = state,
-                onPrevious = viewModel::previousChapter,
-                onNext = viewModel::nextChapter,
-                onSeek = { fraction ->
-                    val length = state.chapter?.body?.length ?: 0
-                    viewModel.onPositionChanged((length * fraction).roundToInt())
-                },
-                onOpenToc = { showToc = true },
-            )
-        }
-        AnimatedVisibility(
-            visible = controlsVisible && state.chapter != null && !readerBusy,
-            enter = fadeIn() + slideInVertically { it / 2 },
-            exit = fadeOut() + slideOutVertically { it / 2 },
-            modifier = Modifier.align(Alignment.BottomEnd),
-        ) {
-            NarrationMenu(
-                expanded = narrationMenuExpanded,
-                active = state.narration.isActive && state.narration.bookId == state.book?.id,
-                paused = state.narration.status == NarrationStatus.PAUSED,
-                controlsVisible = controlsVisible,
-                onToggle = { narrationMenuExpanded = !narrationMenuExpanded },
-                onTogglePlayback = viewModel::toggleNarrationPlayback,
-                onStop = {
-                    narrationMenuExpanded = false
-                    viewModel.stopNarration()
-                },
-                onStart = {
-                    narrationMenuExpanded = false
-                    viewModel.startNarrationFromCurrentPage(
-                        visiblePosition.chapterIndex,
-                        visiblePosition.charOffset,
-                    )
-                },
-                onFollow = {
-                    narrationMenuExpanded = false
-                    controlsVisible = false
-                    viewModel.followNarration()
-                },
-                onOpenListeningMode = {
-                    narrationMenuExpanded = false
-                    viewModel.prepareNarrationPage(
-                        visiblePosition.chapterIndex,
-                        visiblePosition.charOffset,
-                    )
-                    onOpenNarration()
-                },
-            )
+            AnimatedVisibility(
+                visible = controlsVisible && state.chapter != null && !readerBusy,
+                enter = fadeIn() + slideInVertically { -it / 2 },
+                exit = fadeOut() + slideOutVertically { -it / 2 },
+                modifier = Modifier.align(Alignment.TopCenter),
+            ) {
+                ReaderTopBar(
+                    state = state,
+                    onBack = { viewModel.exit(onBack) },
+                    onTheme = { viewModel.setTheme(if (appDark) AppThemeMode.LIGHT else AppThemeMode.DARK) },
+                    onSave = viewModel::saveOffline,
+                    onPause = viewModel::pauseDownload,
+                    onSettings = { showSettings = true },
+                )
+            }
+            AnimatedVisibility(
+                visible = controlsVisible && state.chapter != null && !readerBusy,
+                enter = fadeIn() + slideInVertically { it / 2 },
+                exit = fadeOut() + slideOutVertically { it / 2 },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
+                ReaderBottomBar(
+                    state = state,
+                    onPrevious = viewModel::previousChapter,
+                    onNext = viewModel::nextChapter,
+                    onSeek = { fraction ->
+                        val length = state.chapter?.body?.length ?: 0
+                        viewModel.onPositionChanged((length * fraction).roundToInt())
+                    },
+                    onOpenToc = { showToc = true },
+                )
+            }
+            AnimatedVisibility(
+                visible = controlsVisible && state.chapter != null && !readerBusy,
+                enter = fadeIn() + slideInVertically { it / 2 },
+                exit = fadeOut() + slideOutVertically { it / 2 },
+                modifier = Modifier.align(Alignment.BottomEnd),
+            ) {
+                NarrationMenu(
+                    expanded = narrationMenuExpanded,
+                    active = state.narration.isActive && state.narration.bookId == state.book?.id,
+                    paused = state.narration.status == NarrationStatus.PAUSED,
+                    controlsVisible = controlsVisible,
+                    onToggle = { narrationMenuExpanded = !narrationMenuExpanded },
+                    onTogglePlayback = viewModel::toggleNarrationPlayback,
+                    onStop = {
+                        narrationMenuExpanded = false
+                        viewModel.stopNarration()
+                    },
+                    onStart = {
+                        narrationMenuExpanded = false
+                        viewModel.startNarrationFromCurrentPage(
+                            visiblePosition.chapterIndex,
+                            visiblePosition.charOffset,
+                        )
+                    },
+                    onFollow = {
+                        narrationMenuExpanded = false
+                        controlsVisible = false
+                        viewModel.followNarration()
+                    },
+                    onOpenListeningMode = {
+                        narrationMenuExpanded = false
+                        viewModel.prepareNarrationPage(
+                            visiblePosition.chapterIndex,
+                            visiblePosition.charOffset,
+                        )
+                        onOpenNarration()
+                    },
+                )
+            }
         }
     }
 
     if (showSettings) {
-        ReaderSettingsSheet(
-            preferences = state.preferences,
-            narrationPlaybackSpeed = state.narration.playbackSpeed,
-            onMode = viewModel::setViewMode,
-            onFontSize = viewModel::setFontSize,
-            onFont = viewModel::setFont,
-            onBackground = viewModel::setBackground,
-            onLineHeight = viewModel::setLineHeight,
-            onNarrationPlaybackSpeed = viewModel::setNarrationPlaybackSpeed,
-            onDismiss = { showSettings = false },
-        )
+        CompositionLocalProvider(LocalGlassBackdrop provides glassBackdrop) {
+            ReaderSettingsSheet(
+                preferences = state.preferences,
+                narrationPlaybackSpeed = state.narration.playbackSpeed,
+                onMode = viewModel::setViewMode,
+                onFontSize = viewModel::setFontSize,
+                onFont = viewModel::setFont,
+                onBackground = viewModel::setBackground,
+                onLineHeight = viewModel::setLineHeight,
+                onNarrationPlaybackSpeed = viewModel::setNarrationPlaybackSpeed,
+                onDismiss = { showSettings = false },
+            )
+        }
     }
     if (showToc) {
         val currentChapterIndex = state.chapterIndex.coerceIn(state.toc.indices)
@@ -328,34 +350,38 @@ fun TextReaderScreen(viewModel: TextReaderViewModel, onBack: () -> Unit, onOpenN
         LaunchedEffect(currentChapterIndex) {
             tocListState.scrollToItem(currentChapterIndex)
         }
-        GlassSheet(onDismissRequest = { showToc = false }) {
-            Text("目录", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
-            LazyColumn(state = tocListState) {
-                itemsIndexed(state.toc, key = { _, item -> item.id }) { index, item ->
-                    val isCurrentChapter = index == currentChapterIndex
-                    TextButton(
-                        onClick = { showToc = false; viewModel.selectChapter(index) },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            item.title,
-                            color = if (isCurrentChapter) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            fontWeight = if (isCurrentChapter) FontWeight.Bold else FontWeight.Normal,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                            textAlign = TextAlign.Start,
-                        )
+        CompositionLocalProvider(LocalGlassBackdrop provides glassBackdrop) {
+            GlassSheet(onDismissRequest = { showToc = false }) {
+                Text("目录", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                LazyColumn(state = tocListState) {
+                    itemsIndexed(state.toc, key = { _, item -> item.id }) { index, item ->
+                        val isCurrentChapter = index == currentChapterIndex
+                        TextButton(
+                            onClick = { showToc = false; viewModel.selectChapter(index) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                item.title,
+                                color = if (isCurrentChapter) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                fontWeight = if (isCurrentChapter) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                                textAlign = TextAlign.Start,
+                            )
+                        }
                     }
                 }
             }
         }
     }
     state.conflict?.takeIf { !readerBusy }?.let { conflict ->
-        ProgressConflictDialog(
-            conflict,
-            onLocal = { viewModel.resolveConflict(true) },
-            onRemote = { viewModel.resolveConflict(false) },
-            onCancel = { viewModel.exit(onBack) },
-        )
+        CompositionLocalProvider(LocalGlassBackdrop provides glassBackdrop) {
+            ProgressConflictDialog(
+                conflict,
+                onLocal = { viewModel.resolveConflict(true) },
+                onRemote = { viewModel.resolveConflict(false) },
+                onCancel = { viewModel.exit(onBack) },
+            )
+        }
     }
 }
 
@@ -387,6 +413,7 @@ private fun NarrationMenu(
         ) {
             GlassSurface(
                 shape = MaterialTheme.shapes.large,
+                material = GlassMaterial.ReaderChrome,
                 specular = true,
                 shadow = true,
             ) {
@@ -411,6 +438,7 @@ private fun NarrationMenu(
         }
         GlassSurface(
             shape = MaterialTheme.shapes.large,
+            material = GlassMaterial.ReaderChrome,
             specular = true,
             shadow = true,
         ) {
@@ -443,7 +471,9 @@ private fun ReaderTopBar(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp),
         shape = MaterialTheme.shapes.large,
-        shadow = true,
+        material = GlassMaterial.ReaderChrome,
+        borderWidth = 1.1.dp,
+        shadow = false,
     ) {
         Row(
             Modifier.fillMaxWidth()
@@ -503,7 +533,9 @@ private fun ReaderBottomBar(
     GlassSurface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
         shape = MaterialTheme.shapes.large,
-        shadow = true,
+        material = GlassMaterial.ReaderChrome,
+        borderWidth = 1.1.dp,
+        shadow = false,
     ) {
         Column(
             Modifier.fillMaxWidth()
@@ -810,7 +842,10 @@ private fun ReaderSettingsSheet(
     onNarrationPlaybackSpeed: (Float) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    GlassSheet(onDismissRequest = onDismiss) {
+    GlassSheet(
+        onDismissRequest = onDismiss,
+        material = GlassMaterial.ReaderChrome,
+    ) {
         Column(
             Modifier.fillMaxWidth()
                 .verticalScroll(rememberScrollState())
@@ -870,6 +905,7 @@ fun ProgressConflictDialog(
 ) {
     GlassDialog(
         onDismissRequest = {},
+        material = GlassMaterial.ReaderChrome,
         title = { Text("发现不同的阅读进度", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

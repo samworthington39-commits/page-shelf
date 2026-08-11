@@ -149,7 +149,7 @@ private fun BrandMedallion(modifier: Modifier = Modifier, size: Dp = 112.dp) {
         modifier = modifier.size(size).graphicsLayer { scaleX = pulse; scaleY = pulse },
         contentAlignment = Alignment.Center,
     ) {
-        // Thin static ring with a warm primary→amber gradient.
+        // Thin static ring using the backend forest and live-status greens.
         Box(
             Modifier
                 .fillMaxSize()

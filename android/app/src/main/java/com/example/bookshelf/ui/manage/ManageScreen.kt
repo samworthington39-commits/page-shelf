@@ -48,6 +48,7 @@ import com.example.bookshelf.ui.glass.GlassSurface
 import com.example.bookshelf.ui.glass.FloatingCapsuleContainer
 import com.example.bookshelf.ui.glass.GlassTopBar
 import com.example.bookshelf.ui.glass.LiquidBackdrop
+import com.example.bookshelf.ui.glass.LiquidBackdropStyle
 import com.example.bookshelf.ui.glass.StaggeredReveal
 import com.example.bookshelf.ui.library.formatBytes
 import kotlinx.coroutines.delay
@@ -58,7 +59,7 @@ fun ManageScreen(viewModel: ManageViewModel, onBack: () -> Unit, onServerSetting
     var deleteTarget by remember { mutableStateOf<ManagedDownload?>(null) }
     var deleteProgress by remember { mutableStateOf(false) }
     var confirmBatch by remember { mutableStateOf(false) }
-    LiquidBackdrop(Modifier.fillMaxSize()) {
+    LiquidBackdrop(Modifier.fillMaxSize(), style = LiquidBackdropStyle.Library) {
         FloatingCapsuleContainer(
             modifier = Modifier.fillMaxSize().navigationBarsPadding(),
             topBar = {
@@ -119,7 +120,7 @@ fun ManageScreen(viewModel: ManageViewModel, onBack: () -> Unit, onServerSetting
             item {
                 GlassSurface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, shadow = true) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        GlassSectionTitle("界面外观", "液态玻璃 · 纸张与墨绿书卷气质")
+                        GlassSectionTitle("界面外观", "显示、字体与阅读背景")
                         PreferenceChips(
                             title = "明暗模式",
                             values = AppThemeMode.entries,

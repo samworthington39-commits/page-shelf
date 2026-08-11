@@ -1,5 +1,6 @@
 package com.example.bookshelf
 
+import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,14 +16,19 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -76,7 +82,23 @@ class MainActivity : ComponentActivity() {
         val container = (application as PageShelfApplication).container
         setContent {
             val preferences by container.settings.state.collectAsStateWithLifecycle()
-            PageShelfTheme(preferences.themeMode) { PageShelfApp(container) }
+            PageShelfTheme(preferences.themeMode) {
+                SyncSystemBarIcons()
+                PageShelfApp(container)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SyncSystemBarIcons() {
+    val view = LocalView.current
+    val useDarkIcons = MaterialTheme.colorScheme.background.luminance() > 0.5f
+    SideEffect {
+        val window = (view.context as? Activity)?.window ?: return@SideEffect
+        WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = useDarkIcons
+            isAppearanceLightNavigationBars = useDarkIcons
         }
     }
 }

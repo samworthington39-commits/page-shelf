@@ -74,6 +74,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -104,9 +105,10 @@ import com.example.bookshelf.ui.glass.GlassTextField
 import com.example.bookshelf.ui.glass.FloatingCapsuleContainer
 import com.example.bookshelf.ui.glass.GlassTopBar
 import com.example.bookshelf.ui.glass.LiquidBackdrop
+import com.example.bookshelf.ui.glass.LiquidBackdropStyle
 import com.example.bookshelf.ui.glass.StaggeredReveal
 import com.example.bookshelf.ui.glass.glassPalette
-import com.example.bookshelf.ui.glass.rememberPressScale
+import com.example.bookshelf.ui.glass.rememberPressProgress
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -121,7 +123,7 @@ fun LibraryScreen(
     var largeBook by remember { mutableStateOf<Book?>(null) }
     var searchVisible by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    LiquidBackdrop(Modifier.fillMaxSize()) {
+    LiquidBackdrop(Modifier.fillMaxSize(), style = LiquidBackdropStyle.Library) {
         FloatingCapsuleContainer(
             modifier = Modifier.fillMaxSize().navigationBarsPadding(),
             topBar = {
@@ -129,18 +131,30 @@ fun LibraryScreen(
                     title = "书架",
                     subtitle = "Page Shelf",
                     actions = {
-                    TextButton(onClick = { searchVisible = !searchVisible; if (!searchVisible) query = "" }) {
-                        Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("搜索", modifier = Modifier.padding(start = 4.dp))
-                    }
-                    TextButton(onClick = viewModel::refresh) {
-                        Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("刷新", modifier = Modifier.padding(start = 4.dp))
-                    }
-                    TextButton(onClick = onManage) {
-                        Icon(Icons.Outlined.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("设置", modifier = Modifier.padding(start = 4.dp))
-                    }
+                        GlassIconButton(
+                            onClick = { searchVisible = !searchVisible; if (!searchVisible) query = "" },
+                            contentDescription = if (searchVisible) "关闭搜索" else "搜索",
+                            size = 40.dp,
+                            tint = MaterialTheme.colorScheme.primary,
+                        ) {
+                            Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(20.dp))
+                        }
+                        GlassIconButton(
+                            onClick = viewModel::refresh,
+                            contentDescription = "刷新书架",
+                            size = 40.dp,
+                            tint = MaterialTheme.colorScheme.primary,
+                        ) {
+                            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
+                        }
+                        GlassIconButton(
+                            onClick = onManage,
+                            contentDescription = "书架设置",
+                            size = 40.dp,
+                            tint = MaterialTheme.colorScheme.primary,
+                        ) {
+                            Icon(Icons.Outlined.Settings, contentDescription = null, modifier = Modifier.size(20.dp))
+                        }
                     },
                 )
             },
@@ -363,7 +377,9 @@ private fun BookRow(
 ) {
     val context = LocalContext.current
     val interaction = remember { MutableInteractionSource() }
-    val pressScale = rememberPressScale(interaction)
+    val pressProgress = rememberPressProgress(interaction)
+    val pressScale = 1f - pressProgress * 0.018f
+    val pressOffset = with(LocalDensity.current) { 1.dp.toPx() }
     val coverModel = remember(book.id, book.coverStatus, bookRepository, context) {
         if (book.coverStatus == "ready") bookRepository.coverRequest(context, book.id) else null
     }
@@ -372,11 +388,16 @@ private fun BookRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .graphicsLayer { scaleX = pressScale; scaleY = pressScale },
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+                translationY = pressOffset * pressProgress
+            },
         shape = MaterialTheme.shapes.medium,
         // No elevation shadow: dozens of shadowed rows scrolling together are a major
         // source of frame drops. The translucent fill + edge light keeps the glass look.
         shadow = false,
+        interactionProgress = pressProgress,
     ) {
         Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             AsyncImage(

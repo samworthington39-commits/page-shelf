@@ -18,32 +18,60 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bookshelf.domain.AppThemeMode
 
+private val BackendForest = Color(0xFF17382C)
+private val BackendForestSoft = Color(0xFF285341)
+private val BackendSuccess = Color(0xFF2D6B4F)
+private val BackendLiveGreen = Color(0xFF78BD8F)
+private val BackendInkOnGreen = Color(0xFFF5F0E6)
+private val GlassMintEdge = Color(0xFF9FB9AD)
+private val GlassWarmEdge = Color(0xFFD9C7B8)
+private val CodexGray0 = Color(0xFFFFFFFF)
+private val CodexGray100 = Color(0xFFEDEDED)
+private val CodexGray900 = Color(0xFF181818)
+private val CodexGray1000 = Color(0xFF0D0D0D)
+private val CodexGreen = Color(0xFF40C977)
+private val CodexBlue = Color(0xFF339CFF)
+
 /**
- * Liquid Glass tokens tuned for readability: warm paper, ink text, one lamp-glow accent.
+ * Liquid Glass tokens tuned for readability: warm paper, ink text, and the backend forest green.
  *
  * The "页架" identity is a quiet study — paper, ink, and the reading lamp. Glass surfaces stay
  * translucent enough to feel alive, but opaque enough that body text keeps strong contrast.
  */
 object GlassTokens {
-    // Light: warm paper (matches backend login --paper / --card), green-tinted edges
-    val lightBackdropBase = Color(0xFFF2EDDF)
-    val lightBackdropTop = Color(0xFFF7F2E7)
-    val lightGlassFill = Color(0xD9FDFAF2)          // ~85% translucent frosted glass (Liquid Glass shows content behind)
-    val lightGlassFillStrong = Color(0xF2FDFAF2)
-    val lightGlassStroke = Color(0x332F5D4F)     // forest-green hairline edge (勾边)
-    val lightGlassStrokeStrong = Color(0x552F5D4F)
-    val lightGlassHighlight = Color(0x99FFFFFF)     // bright specular light layer
-    val lightGlassShadow = Color(0x262F5D4F)
+    val backendForest = BackendForest
+    val backendForestSoft = BackendForestSoft
+    val backendSuccess = BackendSuccess
+    val backendLiveGreen = BackendLiveGreen
+    val backendInkOnGreen = BackendInkOnGreen
+    val backendPaper = Color(0xFFF2EEE3)
+    val backendCard = Color(0xFFFAF7EF)
+    val libraryDarkBase = CodexGray900
 
-    // Dark: deep warm charcoal
-    val darkBackdropBase = Color(0xFF171310)
-    val darkBackdropTop = Color(0xFF1E1915)
-    val darkGlassFill = Color(0xB826211B)           // ~72% warm dark frosted glass
-    val darkGlassFillStrong = Color(0xD92E2821)
-    val darkGlassStroke = Color(0x1AFFFFFF)
-    val darkGlassStrokeStrong = Color(0x2EFFFFFF)
-    val darkGlassHighlight = Color(0x14FFFFFF)
-    val darkGlassShadow = Color(0x99000000)
+    // Light: the same shallow warm paper used by the reader. Keeping the environment and
+    // material in one narrow hue range prevents transparent cards changing color while moving.
+    val lightBackdropBase = Color(0xFFF6F2E9)
+    val lightBackdropTop = Color(0xFFFAF8F2)
+    val lightGlassFill = Color(0x52FAF8F2)
+    val lightGlassFillStrong = Color(0x7AFAF8F2)
+    val lightGlassStroke = Color(0xFF8D918B).copy(alpha = 0.24f)
+    val lightGlassStrokeStrong = Color(0xFF686C67).copy(alpha = 0.32f)
+    val lightGlassHighlight = Color(0xF2FFFFFF)
+    val lightGlassRimWarm = GlassWarmEdge.copy(alpha = 0.26f)
+    val lightGlassRimCool = GlassMintEdge.copy(alpha = 0.24f)
+    val lightGlassShadow = Color(0xFF65645F).copy(alpha = 0.15f)
+
+    // Dark: black-blue Codex surfaces use flat transparency and a single quiet blue edge.
+    val darkBackdropBase = Color(0xFF05070A)
+    val darkBackdropTop = Color(0xFF0B1220)
+    val darkGlassFill = Color(0xFF0E1726).copy(alpha = 0.52f)
+    val darkGlassFillStrong = Color(0xFF111C2D).copy(alpha = 0.68f)
+    val darkGlassStroke = CodexGray0.copy(alpha = 0.08f)
+    val darkGlassStrokeStrong = Color(0xFF5EA9FF).copy(alpha = 0.28f)
+    val darkGlassHighlight = CodexGray0.copy(alpha = 0.16f)
+    val darkGlassRimWarm = CodexBlue.copy(alpha = 0.10f)
+    val darkGlassRimCool = CodexBlue.copy(alpha = 0.24f)
+    val darkGlassShadow = Color.Black.copy(alpha = 0.44f)
 
     // Backdrop color washes — calm, low saturation, low alpha (readable).
     val washLight = listOf(
@@ -52,18 +80,18 @@ object GlassTokens {
         Color(0xFFEAD9C4), // lamp cream
     )
     val washDark = listOf(
-        Color(0xFF3A2E1E), // ember brown
-        Color(0xFF24362C), // deep sage
-        Color(0xFF3B2A1D), // warm umber
+        Color(0xFF0A1020),
+        Color(0xFF0D1728),
+        Color(0xFF101B30),
     )
 }
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFFC77932),          // backend login amber (暖黄为主)
-    onPrimary = Color(0xFF20160D),
-    primaryContainer = Color(0xFFF2DDBF),
-    onPrimaryContainer = Color(0xFF3C2407),
-    secondary = Color(0xFF2F5D4F),        // forest green
+    primary = BackendForest,
+    onPrimary = BackendInkOnGreen,
+    primaryContainer = Color(0xFFD6DBD3),
+    onPrimaryContainer = BackendForest,
+    secondary = BackendSuccess,
     onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFFD3E4DA),
     onSecondaryContainer = Color(0xFF0F2A22),
@@ -90,34 +118,34 @@ private val LightColors = lightColorScheme(
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF8FC3B0),
-    onPrimary = Color(0xFF12332A),
-    primaryContainer = Color(0xFF2A4A40),
-    onPrimaryContainer = Color(0xFFD3E9E0),
-    secondary = Color(0xFFE0A267),
-    onSecondary = Color(0xFF3A2408),
-    secondaryContainer = Color(0xFF5A3A16),
-    onSecondaryContainer = Color(0xFFFFDCBB),
-    tertiary = Color(0xFFC9B6A4),
-    onTertiary = Color(0xFF332617),
-    tertiaryContainer = Color(0xFF4C3D2C),
-    onTertiaryContainer = Color(0xFFEADDC9),
-    error = Color(0xFFFFB4A6),
-    onError = Color(0xFF5C1209),
-    errorContainer = Color(0xFF7A2D24),
-    onErrorContainer = Color(0xFFFFDAD4),
+    primary = CodexBlue,
+    onPrimary = CodexGray1000,
+    primaryContainer = Color(0xFF163B63),
+    onPrimaryContainer = Color(0xFFD7E9FF),
+    secondary = Color(0xFF8CC4FF),
+    onSecondary = CodexGray1000,
+    secondaryContainer = Color(0xFF1B3554),
+    onSecondaryContainer = Color(0xFFE5F1FF),
+    tertiary = CodexGreen,
+    onTertiary = CodexGray1000,
+    tertiaryContainer = Color(0xFF173D25),
+    onTertiaryContainer = Color(0xFFD8F8E1),
+    error = Color(0xFFFA423E),
+    onError = CodexGray1000,
+    errorContainer = Color(0xFF5C1C1B),
+    onErrorContainer = Color(0xFFFFDAD8),
     background = GlassTokens.darkBackdropBase,
-    onBackground = Color(0xFFEDE5D7),
+    onBackground = CodexGray0,
     surface = GlassTokens.darkGlassFill,
-    onSurface = Color(0xFFEDE5D7),
-    surfaceVariant = Color(0xFF2E2821),
-    onSurfaceVariant = Color(0xFFC9BFAE),
-    surfaceContainerHighest = Color(0xFF251F19),
-    outline = Color(0xFF6F6557),
-    outlineVariant = Color(0xFF393229),
-    scrim = Color(0xB3000000),
-    inverseSurface = Color(0xFFEDE5D7),
-    inverseOnSurface = Color(0xFF302B24),
+    onSurface = CodexGray0,
+    surfaceVariant = Color(0xFF111827),
+    onSurfaceVariant = CodexGray0.copy(alpha = 0.70f),
+    surfaceContainerHighest = Color(0xFF182235),
+    outline = Color(0xFF5EA9FF).copy(alpha = 0.28f),
+    outlineVariant = CodexGray0.copy(alpha = 0.08f),
+    scrim = Color.Black.copy(alpha = 0.76f),
+    inverseSurface = CodexGray100,
+    inverseOnSurface = CodexGray900,
 )
 
 private val BaseTypography = Typography()

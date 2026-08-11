@@ -39,6 +39,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -52,6 +53,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -82,6 +85,7 @@ fun GlassTopBar(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(30.dp),
         shadow = true,
+        material = GlassMaterial.ReaderChrome,
     ) {
         Row(
             Modifier
@@ -134,7 +138,9 @@ fun GlassButton(
     content: @Composable RowScope.() -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val scale = rememberPressScale(interaction)
+    val pressProgress = rememberPressProgress(interaction)
+    val scale = 1f - pressProgress * 0.018f
+    val pressOffset = with(LocalDensity.current) { 1.dp.toPx() }
     val palette = glassPalette()
     Button(
         onClick = onClick,
@@ -142,14 +148,22 @@ fun GlassButton(
         interactionSource = interaction,
         shape = RoundedCornerShape(18.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (filled) MaterialTheme.colorScheme.primary.copy(alpha = 0.88f) else palette.fillStrong,
+            containerColor = if (filled) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.88f + pressProgress * 0.10f)
+            } else {
+                palette.fillStrong
+            },
             contentColor = if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
             disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         ),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
         border = if (!filled) BorderStroke(1.dp, palette.strokeStrong) else null,
-        modifier = modifier.graphicsLayer { scaleX = scale; scaleY = scale },
+        modifier = modifier.graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+            translationY = pressOffset * pressProgress
+        },
         content = content,
     )
 }
@@ -166,12 +180,21 @@ fun GlassIconButton(
     icon: @Composable () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val scale = rememberPressScale(interaction)
+    val pressProgress = rememberPressProgress(interaction)
+    val scale = 1f - pressProgress * 0.018f
+    val pressOffset = with(LocalDensity.current) { 1.dp.toPx() }
     GlassSurface(
-        modifier = modifier.size(size),
+        modifier = modifier
+            .size(size)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                translationY = pressOffset * pressProgress
+            },
         shape = CircleShape,
         specular = true,
         shadow = false,
+        interactionProgress = pressProgress,
     ) {
         IconButton(
             onClick = onClick,
@@ -179,7 +202,13 @@ fun GlassIconButton(
             interactionSource = interaction,
             modifier = Modifier
                 .fillMaxWidth()
-                .graphicsLayer { scaleX = scale; scaleY = scale },
+                .then(
+                    if (contentDescription != null) {
+                        Modifier.semantics { this.contentDescription = contentDescription }
+                    } else {
+                        Modifier
+                    },
+                ),
         ) {
             androidx.compose.material3.LocalContentColor provides tint
             icon()
@@ -273,6 +302,7 @@ fun GlassTextField(
 fun GlassDialog(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
+    material: GlassMaterial = GlassMaterial.Standard,
     title: (@Composable () -> Unit)? = null,
     text: (@Composable () -> Unit)? = null,
     confirmButton: @Composable () -> Unit = {},
@@ -282,6 +312,7 @@ fun GlassDialog(
         GlassSurface(
             modifier = modifier.fillMaxWidth(),
             shape = RoundedCornerShape(28.dp),
+            material = material,
         ) {
             Column(
                 Modifier.padding(24.dp),
@@ -306,26 +337,42 @@ fun GlassDialog(
 @Composable
 fun GlassSheet(
     onDismissRequest: () -> Unit,
+    material: GlassMaterial = GlassMaterial.Standard,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val palette = glassPalette()
+    val shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = false,
+    )
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
-        containerColor = palette.fillStrong,
+        sheetState = sheetState,
+        containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
         scrimColor = MaterialTheme.colorScheme.scrim,
-        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-        dragHandle = {
-            Box(
-                Modifier
-                    .padding(vertical = 12.dp)
-                    .size(width = 44.dp, height = 5.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.outlineVariant),
-            )
-        },
+        shape = shape,
+        dragHandle = null,
     ) {
-        content()
+        GlassSurface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = shape,
+            material = material,
+            borderWidth = 1.1.dp,
+            shadow = false,
+            sampleMotionOffset = sheetState::requireOffset,
+        ) {
+            Column(Modifier.fillMaxWidth()) {
+                Box(
+                    Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(vertical = 12.dp)
+                        .size(width = 44.dp, height = 5.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.outlineVariant),
+                )
+                content()
+            }
+        }
     }
 }
 
