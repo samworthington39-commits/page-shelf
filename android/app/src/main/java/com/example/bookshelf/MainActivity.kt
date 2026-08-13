@@ -12,10 +12,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,13 +67,12 @@ private val pushExit: ExitTransition =
         slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { -it / 10 }
 
 private val popEnter: EnterTransition =
-    fadeIn(tween(280, easing = FastOutSlowInEasing)) +
-        slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { -it / 10 }
+    fadeIn(tween(200, easing = FastOutSlowInEasing)) +
+        slideInHorizontally(tween(200, easing = FastOutSlowInEasing)) { -it / 10 }
 
 private val popExit: ExitTransition =
-    fadeOut(tween(220, easing = FastOutSlowInEasing)) +
-        slideOutHorizontally(tween(240, easing = FastOutSlowInEasing)) { it / 6 } +
-        scaleOut(targetScale = 0.985f, animationSpec = tween(240, easing = FastOutSlowInEasing))
+    fadeOut(tween(180, easing = FastOutSlowInEasing)) +
+        slideOutHorizontally(tween(180, easing = FastOutSlowInEasing)) { it / 8 }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,9 +105,22 @@ private fun SyncSystemBarIcons() {
 @Composable
 private fun PageShelfApp(container: AppContainer) {
     val navController = rememberNavController()
+    LaunchedEffect(container) {
+        container.credentials.sessionRevoked.collect {
+            if (navController.currentDestination?.route != "settings") {
+                navController.navigate("settings") {
+                    popUpTo(navController.graph.id) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
     NavHost(
         navController = navController,
         startDestination = "startup",
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
         enterTransition = { pushEnter },
         exitTransition = { pushExit },
         popEnterTransition = { popEnter },
@@ -144,7 +156,9 @@ private fun PageShelfApp(container: AppContainer) {
                 },
             )
         }
-        composable("library") {
+        composable(
+            route = "library",
+        ) {
             val model: LibraryViewModel = viewModel(factory = PageShelfViewModelFactory(container))
             LibraryScreen(
                 viewModel = model,
@@ -153,7 +167,9 @@ private fun PageShelfApp(container: AppContainer) {
                 onBookClick = { book -> navController.openReader(book) },
             )
         }
-        composable("manage") {
+        composable(
+            route = "manage",
+        ) {
             val model: ManageViewModel = viewModel(factory = PageShelfViewModelFactory(container))
             ManageScreen(
                 viewModel = model,

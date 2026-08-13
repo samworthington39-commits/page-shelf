@@ -1,10 +1,5 @@
 package com.example.bookshelf.ui.glass
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -16,8 +11,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -35,6 +34,7 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
+import kotlinx.coroutines.delay
 
 enum class LiquidBackdropStyle { Study, Library }
 
@@ -47,18 +47,30 @@ fun LiquidBackdrop(
 ) {
     val dark = isDarkScheme()
     val glassBackdrop = rememberGlassBackdrop()
-    val transition = rememberInfiniteTransition(label = "backdrop-motion")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            tween(
-                durationMillis = if (style == LiquidBackdropStyle.Library) 32_000 else 42_000,
-                easing = LinearEasing,
-            ),
-        ),
-        label = "backdrop-phase",
-    )
+    LaunchedEffect(glassBackdrop) {
+        // A draw-phase heartbeat keeps recycled glass cards sampling the current backdrop while
+        // a LazyColumn scrolls, even if Compose reuses their LayoutCoordinates and draw node.
+        // Every tick re-records each glass surface's sample and the full content layer, so the
+        // clock is deliberately capped at ~30fps: the sampled content is blurred and the two
+        // screens that overlap during navigation transitions no longer re-render at 60fps.
+        while (true) {
+            withFrameNanos { }
+            glassBackdrop.frameTick += 1
+            delay(BACKDROP_TICK_MILLIS)
+        }
+    }
+    // The washes drift on a 32-42s cycle; advancing the phase at the same throttled cadence
+    // keeps the living backdrop without paying for a full-screen redraw on every display frame.
+    var phase by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(style) {
+        val cycleSeconds = if (style == LiquidBackdropStyle.Library) 32f else 42f
+        val startedAt = withFrameNanos { it }
+        while (true) {
+            val now = withFrameNanos { it }
+            phase = (((now - startedAt) / 1_000_000_000.0) % cycleSeconds / cycleSeconds).toFloat()
+            delay(BACKDROP_TICK_MILLIS)
+        }
+    }
 
     BoxWithConstraints(
         modifier = modifier.clipToBounds(),
@@ -147,12 +159,15 @@ private fun LibraryBackdropScene(dark: Boolean, phase: Float) {
     } else {
         listOf(Color(0xFFF7F4EC), Color(0xFFF3F0E8), Color(0xFFFAF8F2))
     }
-    val coolWash = if (dark) Color(0xFF339CFF).copy(alpha = 0.065f)
-    else Color(0xFFB7C1B8).copy(alpha = 0.075f)
-    val softWash = if (dark) Color(0xFF1D4ED8).copy(alpha = 0.040f)
-    else Color(0xFFD5C7B8).copy(alpha = 0.085f)
-    val sheen = if (dark) Color.White.copy(alpha = 0.015f)
-    else Color.White.copy(alpha = 0.10f)
+    // Keep the scene quiet, but give the glass something real to reveal and refract. The Gitee CSS
+    // reference places the overlay over a structured background; these low-saturation washes are
+    // the app's equivalent environment layer for screens that do not have an image backdrop.
+    val coolWash = if (dark) Color(0xFF339CFF).copy(alpha = 0.08f)
+    else Color(0xFFB7C1B8).copy(alpha = 0.12f)
+    val softWash = if (dark) Color(0xFF1D4ED8).copy(alpha = 0.055f)
+    else Color(0xFFD5C7B8).copy(alpha = 0.12f)
+    val sheen = if (dark) Color.White.copy(alpha = 0.02f)
+    else Color.White.copy(alpha = 0.13f)
 
     Canvas(Modifier.fillMaxSize()) {
         drawRect(Brush.verticalGradient(baseColors))
@@ -169,6 +184,40 @@ private fun LibraryBackdropScene(dark: Boolean, phase: Float) {
                 end = Offset(size.width * 0.86f + horizontalShift, size.height),
             ),
         )
+
+        // The CSS reference places the glass over a fine grid. A restrained environmental
+        // lattice serves the same optical purpose here: it gives the SDF lens real structure
+        // to bend while remaining quiet enough behind reading content.
+        val gridSpacing = 28.dp.toPx()
+        val fineGrid = if (dark) Color.White.copy(alpha = 0.024f)
+        else Color(0xFF676C67).copy(alpha = 0.060f)
+        val majorGrid = if (dark) Color.White.copy(alpha = 0.040f)
+        else Color(0xFF5B615C).copy(alpha = 0.082f)
+        var gridIndex = 0
+        var x = 0f
+        while (x <= size.width) {
+            drawLine(
+                color = if (gridIndex % 4 == 0) majorGrid else fineGrid,
+                start = Offset(x, 0f),
+                end = Offset(x, size.height),
+                strokeWidth = if (gridIndex % 4 == 0) 0.70.dp.toPx() else 0.45.dp.toPx(),
+            )
+            x += gridSpacing
+            gridIndex += 1
+        }
+        gridIndex = 0
+        var y = 0f
+        while (y <= size.height) {
+            drawLine(
+                color = if (gridIndex % 4 == 0) majorGrid else fineGrid,
+                start = Offset(0f, y),
+                end = Offset(size.width, y),
+                strokeWidth = if (gridIndex % 4 == 0) 0.70.dp.toPx() else 0.45.dp.toPx(),
+            )
+            y += gridSpacing
+            gridIndex += 1
+        }
+
         drawRect(
             Brush.linearGradient(
                 colorStops = arrayOf(
@@ -214,3 +263,5 @@ private fun WashSeed(index: Int): WashSeed {
         phaseOffset = random.nextDouble() * PI * 2,
     )
 }
+
+private const val BACKDROP_TICK_MILLIS = 33L

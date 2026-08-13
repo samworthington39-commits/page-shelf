@@ -136,10 +136,6 @@ class NarrationController(private val application: Application) {
         const val MIN_PLAYBACK_SPEED = 0.75f
         const val MAX_PLAYBACK_SPEED = 2.5f
         const val PLAYBACK_SPEED_STEP = 0.05f
-        val PRESET_PLAYBACK_SPEEDS = listOf(
-            0.75f, 0.85f, 1.0f, 1.1f, 1.2f, 1.3f, 1.4f,
-            1.5f, 1.6f, 1.75f, 2.0f, 2.25f, 2.5f,
-        )
         val QUICK_PLAYBACK_SPEEDS = listOf(1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
         private const val PREFERENCES = "narration"
         private const val KEY_VOICE = "voice"

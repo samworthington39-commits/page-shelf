@@ -52,26 +52,30 @@ object GlassTokens {
     // material in one narrow hue range prevents transparent cards changing color while moving.
     val lightBackdropBase = Color(0xFFF6F2E9)
     val lightBackdropTop = Color(0xFFFAF8F2)
-    val lightGlassFill = Color(0x52FAF8F2)
-    val lightGlassFillStrong = Color(0x7AFAF8F2)
-    val lightGlassStroke = Color(0xFF8D918B).copy(alpha = 0.24f)
-    val lightGlassStrokeStrong = Color(0xFF686C67).copy(alpha = 0.32f)
-    val lightGlassHighlight = Color(0xF2FFFFFF)
-    val lightGlassRimWarm = GlassWarmEdge.copy(alpha = 0.26f)
-    val lightGlassRimCool = GlassMintEdge.copy(alpha = 0.24f)
-    val lightGlassShadow = Color(0xFF65645F).copy(alpha = 0.15f)
+    // Keep the material tint in the optical range (roughly 0.05..0.14 alpha) so backdrop
+    // detail remains visible through the center of a surface.
+    val lightGlassFill = Color(0x0DFAF8F2)
+    val lightGlassFillStrong = Color(0x12FAF8F2)
+    val lightGlassStroke = Color(0xFF747873).copy(alpha = 0.16f)
+    val lightGlassStrokeStrong = Color(0xFF4F5550).copy(alpha = 0.23f)
+    // The bright return is deliberately restrained; most of the perceived edge should come
+    // from the sampled backdrop folding around the contour, not from a painted white border.
+    val lightGlassHighlight = Color.White.copy(alpha = 0.48f)
+    val lightGlassRimWarm = GlassWarmEdge.copy(alpha = 0.15f)
+    val lightGlassRimCool = GlassMintEdge.copy(alpha = 0.14f)
+    val lightGlassShadow = Color(0xFF4A4B48).copy(alpha = 0.18f)
 
-    // Dark: black-blue Codex surfaces use flat transparency and a single quiet blue edge.
+    // Dark: the same transparent optical material, tuned cooler and dimmer for night reading.
     val darkBackdropBase = Color(0xFF05070A)
     val darkBackdropTop = Color(0xFF0B1220)
-    val darkGlassFill = Color(0xFF0E1726).copy(alpha = 0.52f)
-    val darkGlassFillStrong = Color(0xFF111C2D).copy(alpha = 0.68f)
-    val darkGlassStroke = CodexGray0.copy(alpha = 0.08f)
-    val darkGlassStrokeStrong = Color(0xFF5EA9FF).copy(alpha = 0.28f)
-    val darkGlassHighlight = CodexGray0.copy(alpha = 0.16f)
-    val darkGlassRimWarm = CodexBlue.copy(alpha = 0.10f)
-    val darkGlassRimCool = CodexBlue.copy(alpha = 0.24f)
-    val darkGlassShadow = Color.Black.copy(alpha = 0.44f)
+    val darkGlassFill = Color(0xFF0E1726).copy(alpha = 0.16f)
+    val darkGlassFillStrong = Color(0xFF111C2D).copy(alpha = 0.23f)
+    val darkGlassStroke = CodexGray0.copy(alpha = 0.13f)
+    val darkGlassStrokeStrong = Color(0xFF5EA9FF).copy(alpha = 0.30f)
+    val darkGlassHighlight = CodexGray0.copy(alpha = 0.28f)
+    val darkGlassRimWarm = Color(0xFFA78BFA).copy(alpha = 0.15f)
+    val darkGlassRimCool = Color(0xFF63C4FF).copy(alpha = 0.20f)
+    val darkGlassShadow = Color.Black.copy(alpha = 0.52f)
 
     // Backdrop color washes — calm, low saturation, low alpha (readable).
     val washLight = listOf(

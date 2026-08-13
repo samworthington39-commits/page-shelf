@@ -5,6 +5,9 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.core.content.edit
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -15,6 +18,10 @@ import javax.crypto.spec.GCMParameterSpec
 class SecureCredentialStore(context: Context) {
     private val preferences = context.applicationContext
         .getSharedPreferences("secure_session", Context.MODE_PRIVATE)
+    private val _sessionRevoked = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** Emitted when an ordinary API call observes an invalid bearer session. */
+    val sessionRevoked: SharedFlow<Unit> = _sessionRevoked.asSharedFlow()
 
     fun clearPassword() = preferences.edit { remove(KEY_PASSWORD) }
 
@@ -38,6 +45,11 @@ class SecureCredentialStore(context: Context) {
         preferences.edit {
             remove(KEY_TOKEN)
         }
+    }
+
+    fun invalidateSession() {
+        clearSession()
+        _sessionRevoked.tryEmit(Unit)
     }
 
     fun clearAll() = preferences.edit { clear() }

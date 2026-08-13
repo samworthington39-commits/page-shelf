@@ -208,6 +208,8 @@ class ProgressRepository(
                     if (code != null && code in PERMANENT_HTTP_CODES) {
                         // 4xx like 404 (book removed from server) or 409 (PDF changed) will
                         // never succeed; retrying them only clogs the queue with backoff.
+                        // 401 is intentionally retryable: it means the session was revoked and
+                        // the queue should survive until the user signs in again.
                         queueDao.delete(item.bookId)
                         Log.w(SYNC_LOG_TAG, "dropped ${item.bookId} permanent HTTP $code")
                     } else {
@@ -261,7 +263,7 @@ class ProgressRepository(
         const val SYNC_COALESCE_MILLIS = 150L
         const val SYNC_LOG_TAG = "PageShelfSync"
         // Server-side rejections that will never succeed on retry.
-        val PERMANENT_HTTP_CODES = setOf(400, 401, 403, 404, 409, 422)
+        val PERMANENT_HTTP_CODES = setOf(400, 403, 404, 409, 422)
     }
 }
 

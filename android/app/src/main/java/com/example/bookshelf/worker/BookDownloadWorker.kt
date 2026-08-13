@@ -65,10 +65,16 @@ class BookDownloadWorker(
                 range = if (offset > 0) "bytes=$offset-" else null,
                 ifRange = if (offset > 0) "\"$fileFingerprint\"" else null,
             )
+            if (response.code() == 401) {
+                return@withContext Result.retry()
+            }
             if (response.code() == 416) {
                 partial.delete()
                 offset = 0
                 response = container.api.file(bookId)
+            }
+            if (response.code() == 401) {
+                return@withContext Result.retry()
             }
             if (!response.isSuccessful) error("下载失败：HTTP ${response.code()}")
             if (offset > 0 && response.code() == 200) {

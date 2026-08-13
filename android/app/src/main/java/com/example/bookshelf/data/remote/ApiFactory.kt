@@ -64,7 +64,11 @@ object ApiFactory {
             val booksIndex = segments.indexOf("books")
             val bookId = segments.getOrNull(booksIndex + 1).takeIf { booksIndex >= 0 }
             bookId?.let { shelfAccess?.pinForBook(it) }?.let { pin -> requestBuilder.header("X-Shelf-Pin", pin) }
-            chain.proceed(requestBuilder.build())
+            val response = chain.proceed(requestBuilder.build())
+            val invalidBearerSession = response.code == 401 &&
+                response.header("WWW-Authenticate")?.startsWith("Bearer", ignoreCase = true) == true
+            if (invalidBearerSession) credentials?.invalidateSession()
+            response
         }
         builder.addInterceptor(logging)
 

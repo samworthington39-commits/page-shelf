@@ -129,7 +129,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.example.bookshelf.ui.glass.GlassButton
 import com.example.bookshelf.ui.glass.GlassDialog
+import com.example.bookshelf.ui.glass.GlassIconButton
 import com.example.bookshelf.ui.glass.GlassMaterial
+import com.example.bookshelf.ui.glass.GlassPerformance
 import com.example.bookshelf.ui.glass.GlassSheet
 import com.example.bookshelf.ui.glass.GlassSurface
 import com.example.bookshelf.ui.glass.LocalGlassBackdrop
@@ -480,8 +482,13 @@ private fun ReaderTopBar(
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回书架并保存进度")
+            GlassIconButton(
+                onClick = onBack,
+                contentDescription = "返回书架并保存进度",
+                size = 40.dp,
+                performance = GlassPerformance.Low,
+            ) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
             }
             Text(
                 state.book?.title.orEmpty(),
@@ -489,12 +496,24 @@ private fun ReaderTopBar(
                 maxLines = 1,
                 style = MaterialTheme.typography.titleMedium,
             )
-            IconButton(onClick = onTheme) {
-                Icon(Icons.Outlined.Lightbulb, contentDescription = "切换明暗模式")
+            GlassIconButton(
+                onClick = onTheme,
+                contentDescription = "切换明暗模式",
+                size = 40.dp,
+                performance = GlassPerformance.Low,
+            ) {
+                Icon(Icons.Outlined.Lightbulb, contentDescription = null)
             }
-            IconButton(
+            GlassIconButton(
                 onClick = if (downloading) onPause else onSave,
                 enabled = download?.status != DownloadStatus.DOWNLOADED || download?.isPermanent != true,
+                contentDescription = when {
+                    download?.status == DownloadStatus.DOWNLOADED && download?.isPermanent == true -> "已下载到本地"
+                    downloading -> "暂停下载，已完成 ${((download?.fraction ?: 0f) * 100).roundToInt()}%"
+                    else -> "保存整本书到本地"
+                },
+                size = 40.dp,
+                performance = GlassPerformance.Low,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     if (downloading) {
@@ -506,16 +525,17 @@ private fun ReaderTopBar(
                     }
                     Icon(
                         Icons.Outlined.Download,
-                        contentDescription = when {
-                            download?.status == DownloadStatus.DOWNLOADED && download?.isPermanent == true -> "已下载到本地"
-                            downloading -> "暂停下载，已完成 ${((download?.fraction ?: 0f) * 100).roundToInt()}%"
-                            else -> "保存整本书到本地"
-                        },
+                        contentDescription = null,
                     )
                 }
             }
-            IconButton(onClick = onSettings) {
-                Icon(Icons.Outlined.Settings, contentDescription = "阅读设置")
+            GlassIconButton(
+                onClick = onSettings,
+                contentDescription = "阅读设置",
+                size = 40.dp,
+                performance = GlassPerformance.Low,
+            ) {
+                Icon(Icons.Outlined.Settings, contentDescription = null)
             }
         }
     }

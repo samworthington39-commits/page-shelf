@@ -32,6 +32,7 @@ class ProgressConflictDialogTest {
         }
 
         compose.onNodeWithText("发现不同的阅读进度").assertIsDisplayed()
+        compose.onNodeWithText("使用本机进度").assertIsDisplayed()
         compose.onNodeWithText("使用服务器进度").performClick()
         assertEquals("remote", choice)
     }

@@ -11,6 +11,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,8 +37,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,9 +53,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.bookshelf.narration.NarrationController
 import com.example.bookshelf.narration.NarrationStatus
-import com.example.bookshelf.narration.NarrationVoice
-import com.example.bookshelf.ui.glass.GlassButton
-import com.example.bookshelf.ui.glass.GlassChip
 import com.example.bookshelf.ui.glass.GlassIconButton
 import com.example.bookshelf.ui.glass.GlassSurface
 import com.example.bookshelf.ui.glass.FloatingCapsuleContainer
@@ -98,7 +98,7 @@ fun NarrationScreen(
             StaggeredReveal(index = 0) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(top = 18.dp),
+                    modifier = Modifier.padding(top = 10.dp),
                 ) {
                     NarrationDisc(playing = playing)
                     Spacer(Modifier.height(18.dp))
@@ -130,12 +130,12 @@ fun NarrationScreen(
                 GlassSurface(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 18.dp),
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
                     shape = MaterialTheme.shapes.large,
                     shadow = true,
                 ) {
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(150.dp).padding(22.dp),
+                        modifier = Modifier.fillMaxWidth().height(136.dp).padding(18.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         when {
@@ -161,94 +161,104 @@ fun NarrationScreen(
             }
 
             StaggeredReveal(index = 2) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
+                GlassSurface(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    shape = MaterialTheme.shapes.large,
+                    shadow = true,
                 ) {
-                    GlassIconButton(
-                        onClick = controller::previousChapter,
-                        enabled = active && state.status != NarrationStatus.PREPARING && state.chapterIndex > 0,
-                        contentDescription = "上一章",
-                        size = 52.dp,
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Filled.SkipPrevious, contentDescription = null)
-                    }
-                    NarrationPlayButton(
-                        playing = playing,
-                        active = active,
-                        prepared = prepared?.bookId == bookId,
-                        preparing = state.status == NarrationStatus.PREPARING,
-                        onToggle = {
-                            if (active && state.status == NarrationStatus.PLAYING) controller.pause()
-                            else if (active && state.status == NarrationStatus.PAUSED) controller.resume()
-                            else controller.startPrepared()
-                        },
-                    )
-                    GlassIconButton(
-                        onClick = controller::nextChapter,
-                        enabled = active && state.status != NarrationStatus.PREPARING &&
-                            state.chapterCount > 0 && state.chapterIndex < state.chapterCount - 1,
-                        contentDescription = "下一章",
-                        size = 52.dp,
-                    ) {
-                        Icon(Icons.Filled.SkipNext, contentDescription = null)
+                        GlassIconButton(
+                            onClick = controller::previousChapter,
+                            enabled = active && state.status != NarrationStatus.PREPARING && state.chapterIndex > 0,
+                            contentDescription = "上一章",
+                            size = 52.dp,
+                        ) {
+                            Icon(Icons.Filled.SkipPrevious, contentDescription = null)
+                        }
+                        NarrationPlayButton(
+                            playing = playing,
+                            active = active,
+                            prepared = prepared?.bookId == bookId,
+                            preparing = state.status == NarrationStatus.PREPARING,
+                            onToggle = {
+                                if (active && state.status == NarrationStatus.PLAYING) controller.pause()
+                                else if (active && state.status == NarrationStatus.PAUSED) controller.resume()
+                                else controller.startPrepared()
+                            },
+                        )
+                        GlassIconButton(
+                            onClick = controller::nextChapter,
+                            enabled = active && state.status != NarrationStatus.PREPARING &&
+                                state.chapterCount > 0 && state.chapterIndex < state.chapterCount - 1,
+                            contentDescription = "下一章",
+                            size = 52.dp,
+                        ) {
+                            Icon(Icons.Filled.SkipNext, contentDescription = null)
+                        }
+                        GlassIconButton(
+                            onClick = controller::stop,
+                            enabled = active,
+                            contentDescription = "停止朗读",
+                            size = 52.dp,
+                        ) {
+                            Icon(Icons.Outlined.Stop, contentDescription = null)
+                        }
                     }
                 }
             }
 
             StaggeredReveal(index = 3) {
-                Row(
-                    modifier = Modifier.padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                GlassSurface(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    shape = MaterialTheme.shapes.large,
+                    shadow = true,
                 ) {
-                    GlassButton(onClick = controller::stop, enabled = active, filled = false) {
-                        Icon(Icons.Outlined.Stop, contentDescription = null)
-                        Text("停止", modifier = Modifier.padding(start = 6.dp))
-                    }
-                    GlassButton(onClick = onBack, enabled = isThisBook, filled = false) {
-                        Text("查看朗读正文")
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        NarrationSpeedControls(
+                            playbackSpeed = state.playbackSpeed,
+                            onPlaybackSpeedChange = controller::setPlaybackSpeed,
+                        )
+                        HorizontalDivider()
+                        NarrationSleepTimerControl(
+                            timer = state.sleepTimer.takeIf { isThisBook },
+                            endsAtElapsedRealtimeMs = state.sleepTimerEndsAtElapsedRealtimeMs.takeIf { isThisBook },
+                            enabled = active,
+                            onTimerChange = controller::setSleepTimer,
+                        )
                     }
                 }
             }
 
             StaggeredReveal(index = 4) {
                 Column(
-                    Modifier
+                    modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 22.dp),
+                        .padding(horizontal = 24.dp, vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text("音色", style = MaterialTheme.typography.titleMedium)
-                    Row(
-                        modifier = Modifier.padding(top = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        NarrationVoice.entries.forEach { voice ->
-                            GlassChip(
-                                selected = state.voice == voice,
-                                onClick = { controller.setVoice(voice) },
-                                label = voice.displayName,
-                            )
-                        }
-                    }
-                    NarrationSpeedControls(
-                        playbackSpeed = state.playbackSpeed,
-                        onPlaybackSpeedChange = controller::setPlaybackSpeed,
-                        modifier = Modifier.padding(top = 22.dp),
-                    )
-                    NarrationSleepTimerControl(
-                        timer = state.sleepTimer.takeIf { isThisBook },
-                        endsAtElapsedRealtimeMs = state.sleepTimerEndsAtElapsedRealtimeMs.takeIf { isThisBook },
-                        enabled = active,
-                        onTimerChange = controller::setSleepTimer,
-                        modifier = Modifier.padding(top = 22.dp),
-                    )
                     Text(
                         "朗读引擎与内置女声均在本机运行，朗读时不上传正文。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 12.dp),
+                        textAlign = TextAlign.Center,
                     )
+                    Spacer(Modifier.height(4.dp))
+                    TextButton(onClick = onBack, enabled = isThisBook) {
+                        Text("查看朗读正文")
+                    }
                 }
             }
         }
@@ -342,6 +352,7 @@ private fun NarrationPlayButton(
     preparing: Boolean,
     onToggle: () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     val transition = rememberInfiniteTransition(label = "play-glow")
     val glow by transition.animateFloat(
         initialValue = 0.6f,
@@ -365,9 +376,17 @@ private fun NarrationPlayButton(
             shape = CircleShape,
             specular = true,
             shadow = true,
+            interactionSource = interaction,
         ) {
             Box(
-                Modifier.fillMaxSize().clickable(onClick = onToggle, enabled = enabled),
+                Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = interaction,
+                        indication = null,
+                        onClick = onToggle,
+                        enabled = enabled,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

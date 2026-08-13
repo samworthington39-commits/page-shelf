@@ -1,5 +1,6 @@
 package com.example.bookshelf.ui.glass
 
+import android.os.Build
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.bookshelf.ui.theme.GlassTokens
+import kotlin.math.max
 import androidx.compose.runtime.withFrameNanos
 
 /** The translucent fill, bright edge, specular sheen, and shadow for the current theme. */
@@ -53,6 +55,9 @@ internal data class GlassPalette(
 
 /** Optical density presets. Reader chrome uses a thicker, more strongly diffusing glass slab. */
 enum class GlassMaterial { Standard, ReaderChrome }
+
+/** Rendering cost policy for a glass surface. Auto follows the device capability. */
+enum class GlassPerformance { Auto, High, Low, Static }
 
 /**
  * A draw-only invalidation hook for transient parent animations. AnimatedVisibility can move
@@ -90,6 +95,7 @@ internal fun glassPalette(): GlassPalette {
     val dark = isDarkScheme()
     return if (dark) {
         GlassPalette(
+            // Night mode keeps the same physical stack with a cooler, lower-energy light return.
             liquidOptics = true,
             fill = GlassTokens.darkGlassFill,
             fillStrong = GlassTokens.darkGlassFillStrong,
@@ -130,19 +136,51 @@ fun GlassSurface(
     material: GlassMaterial = GlassMaterial.Standard,
     interactionProgress: Float = 0f,
     sampleMotionOffset: (() -> Float)? = null,
+    tintOpacity: Float? = null,
+    blurRadius: Dp? = null,
+    edgeBand: Dp? = null,
+    bendStrength: Dp? = null,
+    dispersion: Dp? = null,
+    specularStrength: Float = 0.17f,
+    interactionSource: MutableInteractionSource? = null,
+    enabled: Boolean = true,
+    hoverEnabled: Boolean = true,
+    performance: GlassPerformance = GlassPerformance.Auto,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val palette = glassPalette()
     val motionInvalidation = sampleMotionOffset ?: LocalGlassMotionInvalidation.current
-    val fill = tint ?: when (material) {
+    val baseTint = tint ?: when (material) {
         GlassMaterial.Standard -> palette.fill
-        GlassMaterial.ReaderChrome -> palette.fillStrong.copy(
-            alpha = 0.02f,
-        )
+        GlassMaterial.ReaderChrome -> palette.fillStrong
     }
+    val fill = baseTint.copy(
+        alpha = (tintOpacity ?: baseTint.alpha)
+            .coerceIn(0f, 1f) * if (enabled) 1f else 0.72f,
+    )
     val backdrop = LocalGlassBackdrop.current
-    val sampleBackdrop = backdrop != null && (
-        palette.liquidOptics || material == GlassMaterial.ReaderChrome
+    // Both themes use the same live sampled optical path. Night mode swaps the palette and keeps
+    // the lens quieter, but never falls back to a flat opaque card.
+    val sampleBackdrop = backdrop != null && performance != GlassPerformance.Static
+    val resolvedPerformance = when (performance) {
+        GlassPerformance.Auto -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            GlassPerformance.High
+        } else {
+            GlassPerformance.Low
+        }
+        else -> performance
+    }
+    // Press drives a soft light reaction: the touched surface brightens and the glow is shared
+    // through the backdrop so neighbouring glass bends it back at their edges (edge reflections).
+    val surfaceInteraction = interactionSource ?: remember { MutableInteractionSource() }
+    val pressed by surfaceInteraction.collectIsPressedAsState()
+    val opticalProgress by animateFloatAsState(
+        targetValue = max(interactionProgress.coerceIn(0f, 1f), if (pressed) 1f else 0f),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "liquid-glass-interaction",
     )
     val sheen = Brush.verticalGradient(
         colorStops = arrayOf(
@@ -176,14 +214,23 @@ fun GlassSurface(
                         specular = specular,
                         borderWidth = borderWidth,
                         material = material,
-                        interactionProgress = interactionProgress,
+                        interactionProgress = opticalProgress,
                         sampleMotionOffset = motionInvalidation,
+                        blurRadius = blurRadius,
+                        edgeBand = edgeBand,
+                        bendStrength = bendStrength,
+                        dispersion = dispersion,
+                        specularStrength = specularStrength.coerceIn(0f, 0.25f),
+                        performance = resolvedPerformance,
                     )
                 } else {
                     Modifier
                         .background(fill)
                         .then(
-                            if (specular && palette.liquidOptics) Modifier.background(sheen, shape)
+                            if (specular && palette.liquidOptics) Modifier.background(
+                                sheen,
+                                shape,
+                            )
                             else Modifier,
                         )
                         .border(
@@ -198,6 +245,50 @@ fun GlassSurface(
             content()
         }
     }
+}
+
+/** Alias for callers that want to name the material rather than its layout surface. */
+@Composable
+fun LiquidGlass(
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(22.dp),
+    tint: Color? = null,
+    tintOpacity: Float? = null,
+    blurRadius: Dp? = null,
+    edgeBand: Dp? = null,
+    bendStrength: Dp? = null,
+    dispersion: Dp? = null,
+    specularStrength: Float = 0.17f,
+    specular: Boolean = true,
+    shadow: Boolean = true,
+    borderWidth: Dp = 1.dp,
+    material: GlassMaterial = GlassMaterial.Standard,
+    interactionSource: MutableInteractionSource? = null,
+    enabled: Boolean = true,
+    hoverEnabled: Boolean = true,
+    performance: GlassPerformance = GlassPerformance.Auto,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    GlassSurface(
+        modifier = modifier,
+        shape = shape,
+        tint = tint,
+        tintOpacity = tintOpacity,
+        blurRadius = blurRadius,
+        edgeBand = edgeBand,
+        bendStrength = bendStrength,
+        dispersion = dispersion,
+        specularStrength = specularStrength,
+        specular = specular,
+        shadow = shadow,
+        borderWidth = borderWidth,
+        material = material,
+        interactionSource = interactionSource,
+        enabled = enabled,
+        hoverEnabled = hoverEnabled,
+        performance = performance,
+        content = content,
+    )
 }
 
 /** A circular glass tile used for floating icon buttons. */

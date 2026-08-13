@@ -1,8 +1,10 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
+)
 
 package com.example.bookshelf.ui.glass
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
@@ -49,6 +52,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -141,31 +146,36 @@ fun GlassButton(
     val pressProgress = rememberPressProgress(interaction)
     val scale = 1f - pressProgress * 0.018f
     val pressOffset = with(LocalDensity.current) { 1.dp.toPx() }
-    val palette = glassPalette()
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        interactionSource = interaction,
-        shape = RoundedCornerShape(18.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (filled) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.88f + pressProgress * 0.10f)
-            } else {
-                palette.fillStrong
-            },
-            contentColor = if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-        ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
-        border = if (!filled) BorderStroke(1.dp, palette.strokeStrong) else null,
+    GlassSurface(
         modifier = modifier.graphicsLayer {
             scaleX = scale
             scaleY = scale
             translationY = pressOffset * pressProgress
         },
-        content = content,
-    )
+        shape = RoundedCornerShape(18.dp),
+        tint = if (filled) MaterialTheme.colorScheme.primary else null,
+        tintOpacity = if (filled) 0.14f + pressProgress * 0.04f else null,
+        interactionSource = interaction,
+        enabled = enabled,
+        shadow = false,
+    ) {
+        Button(
+            onClick = onClick,
+            enabled = enabled,
+            interactionSource = interaction,
+            shape = RoundedCornerShape(18.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent,
+                contentColor = if (filled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
+                disabledContainerColor = Color.Transparent,
+                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            ),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
+            border = null,
+            modifier = Modifier.fillMaxWidth(),
+            content = content,
+        )
+    }
 }
 
 /** A circular glass icon button with a tactile spring press. */
@@ -177,6 +187,9 @@ fun GlassIconButton(
     size: Dp = 44.dp,
     enabled: Boolean = true,
     tint: Color = MaterialTheme.colorScheme.onSurface,
+    glassTint: Color? = null,
+    glassTintOpacity: Float? = null,
+    performance: GlassPerformance = GlassPerformance.Auto,
     icon: @Composable () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -192,9 +205,12 @@ fun GlassIconButton(
                 translationY = pressOffset * pressProgress
             },
         shape = CircleShape,
+        tint = glassTint,
+        tintOpacity = glassTintOpacity,
         specular = true,
         shadow = false,
         interactionProgress = pressProgress,
+        performance = performance,
     ) {
         IconButton(
             onClick = onClick,
@@ -210,8 +226,7 @@ fun GlassIconButton(
                     },
                 ),
         ) {
-            androidx.compose.material3.LocalContentColor provides tint
-            icon()
+            CompositionLocalProvider(LocalContentColor provides tint) { icon() }
         }
     }
 }
@@ -267,34 +282,50 @@ fun GlassTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     leadingIcon: (@Composable () -> Unit)? = null,
     trailingIcon: (@Composable () -> Unit)? = null,
+    focusRequester: FocusRequester? = null,
+    performance: GlassPerformance = GlassPerformance.Auto,
 ) {
-    val palette = glassPalette()
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
+    val shape = RoundedCornerShape(20.dp)
+    GlassSurface(
         modifier = modifier,
-        label = label?.let { { Text(it) } },
-        placeholder = placeholder?.let { { Text(it) } },
-        supportingText = supportingText?.let { { Text(it) } },
-        singleLine = singleLine,
-        isError = isError,
-        keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions,
-        visualTransformation = visualTransformation,
-        leadingIcon = leadingIcon,
-        trailingIcon = trailingIcon,
-        shape = RoundedCornerShape(20.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = palette.fillStrong,
-            unfocusedContainerColor = palette.fill,
-            errorContainerColor = palette.fillStrong,
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = palette.strokeStrong,
-            focusedLabelColor = MaterialTheme.colorScheme.primary,
-            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            cursorColor = MaterialTheme.colorScheme.primary,
-        ),
-    )
+        shape = shape,
+        material = GlassMaterial.ReaderChrome,
+        shadow = false,
+        performance = performance,
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (focusRequester != null) Modifier.focusRequester(focusRequester)
+                    else Modifier,
+                ),
+            label = label?.let { { Text(it) } },
+            placeholder = placeholder?.let { { Text(it) } },
+            supportingText = supportingText?.let { { Text(it) } },
+            singleLine = singleLine,
+            isError = isError,
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
+            visualTransformation = visualTransformation,
+            leadingIcon = leadingIcon,
+            trailingIcon = trailingIcon,
+            shape = shape,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
+                errorContainerColor = Color.Transparent,
+                focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+                unfocusedBorderColor = Color.Transparent,
+                errorBorderColor = MaterialTheme.colorScheme.error,
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                cursorColor = MaterialTheme.colorScheme.primary,
+            ),
+        )
+    }
 }
 
 /** A glass dialog on a dimmed backdrop. */
@@ -320,10 +351,10 @@ fun GlassDialog(
             ) {
                 title?.invoke()
                 text?.invoke()
-                Row(
+                FlowRow(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     dismissButton()
                     confirmButton()

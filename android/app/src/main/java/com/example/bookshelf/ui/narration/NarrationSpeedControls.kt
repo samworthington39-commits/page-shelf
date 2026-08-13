@@ -3,20 +3,15 @@
 package com.example.bookshelf.ui.narration
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,10 +20,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
@@ -48,7 +39,6 @@ fun NarrationSpeedControls(
     onPlaybackSpeedChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var presetsExpanded by remember { mutableStateOf(false) }
     val canDecrease = playbackSpeed > NarrationController.MIN_PLAYBACK_SPEED
     val canIncrease = playbackSpeed < NarrationController.MAX_PLAYBACK_SPEED
 
@@ -125,33 +115,6 @@ fun NarrationSpeedControls(
                     onClick = { onPlaybackSpeedChange(speed) },
                     label = { Text(formatPresetSpeed(speed)) },
                 )
-            }
-        }
-
-        Box {
-            TextButton(onClick = { presetsExpanded = true }) {
-                Text("更多预设")
-                Spacer(Modifier.width(2.dp))
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-            }
-            DropdownMenu(
-                expanded = presetsExpanded,
-                onDismissRequest = { presetsExpanded = false },
-            ) {
-                NarrationController.PRESET_PLAYBACK_SPEEDS.forEach { speed ->
-                    DropdownMenuItem(
-                        text = { Text(formatPresetSpeed(speed)) },
-                        onClick = {
-                            presetsExpanded = false
-                            onPlaybackSpeedChange(speed)
-                        },
-                        trailingIcon = {
-                            if (sameSpeed(playbackSpeed, speed)) {
-                                Text("当前", color = MaterialTheme.colorScheme.primary)
-                            }
-                        },
-                    )
-                }
             }
         }
     }

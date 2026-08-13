@@ -144,6 +144,14 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                     password = "",
                     status = ConnectionStatus.Success(result.latencyMillis, result.apiVersion),
                 )
+                if (value.password.isNotBlank() && container.settings.state.value.progressSyncEnabled) {
+                    // A fresh login restores the session. Reset queued progress backoffs now so
+                    // books that were read while signed out upload immediately instead of waiting
+                    // out an old WorkManager retry delay.
+                    viewModelScope.launch {
+                        runCatching { container.progress.applySyncPreference(true) }
+                    }
+                }
             }.onFailure { error ->
                 if (error !is CancellationException) {
                     _state.value = _state.value.copy(status = ConnectionStatus.Error(error.safeMessage("连接失败")))

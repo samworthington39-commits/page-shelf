@@ -22,7 +22,7 @@ docker compose ps
 docker pull ghcr.io/samworthington39-commits/page-shelf:latest
 ```
 
-固定版本可将 `.env` 中的 `PAGE_SHELF_VERSION` 改为 Release 标签，例如 `v1.0.8`。
+固定版本可将 `.env` 中的 `PAGE_SHELF_VERSION` 改为 Release 标签，例如 `v1.3.0`。
 
 ## 首次登录 / First Login
 

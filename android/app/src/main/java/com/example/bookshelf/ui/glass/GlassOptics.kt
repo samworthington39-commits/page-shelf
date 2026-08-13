@@ -10,6 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,16 +47,28 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.ceil
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-/** A recorded background layer shared by every glass surface inside one screen backdrop. */
+/** Recorded environment and dynamic content layers shared by glass surfaces on one screen. */
 @Stable
-internal class GlassBackdrop internal constructor(val layer: GraphicsLayer) {
+internal class GlassBackdrop internal constructor(
+    val layer: GraphicsLayer,
+    val dynamicContentLayer: GraphicsLayer,
+    val lightLayer: GraphicsLayer,
+) {
     var coordinates: LayoutCoordinates? by mutableStateOf(null)
+    var dynamicContentCoordinates: LayoutCoordinates? by mutableStateOf(null)
+    /** Draw-phase clock used to invalidate recycled LazyColumn glass surfaces in place. */
+    var frameTick by mutableIntStateOf(0)
+    /** Press light source in window coordinates, shared by every glass surface on this screen. */
+    var touchLight: Offset? by mutableStateOf(null)
+    var touchLightStrength: Float by mutableFloatStateOf(0f)
+    var touchLightOwner: Any? by mutableStateOf(null)
 }
 
 internal val LocalGlassBackdrop = staticCompositionLocalOf<GlassBackdrop?> { null }
@@ -62,7 +76,11 @@ internal val LocalGlassBackdrop = staticCompositionLocalOf<GlassBackdrop?> { nul
 @Composable
 internal fun rememberGlassBackdrop(): GlassBackdrop {
     val layer = rememberGraphicsLayer()
-    return remember(layer) { GlassBackdrop(layer) }
+    val dynamicContentLayer = rememberGraphicsLayer()
+    val lightLayer = rememberGraphicsLayer()
+    return remember(layer, dynamicContentLayer, lightLayer) {
+        GlassBackdrop(layer, dynamicContentLayer, lightLayer)
+    }
 }
 
 /** Records only the environmental layer, keeping glass controls out of their own sample. */
@@ -71,10 +89,60 @@ internal fun Modifier.captureGlassBackdrop(backdrop: GlassBackdrop): Modifier =
         if (coordinates.isAttached) backdrop.coordinates = coordinates
     }.drawWithCache {
         onDrawWithContent {
+            // Keep the captured environmental layer live even when its content is moved by a
+            // scrolling parent rather than recomposed. This is intentionally read in draw phase
+            // so it invalidates rendering without rebuilding the modifier cache.
+            val frameTick = backdrop.frameTick
+            if (frameTick == Int.MIN_VALUE) return@onDrawWithContent
             backdrop.layer.record(size = IntSize(ceil(size.width).toInt(), ceil(size.height).toInt())) {
                 this@onDrawWithContent.drawContent()
             }
+            // The press glow lives in its own layer so glass surfaces can sample it without
+            // painting a bright pool directly onto the visible background.
+            backdrop.lightLayer.record(
+                size = IntSize(ceil(size.width).toInt(), ceil(size.height).toInt()),
+            ) {
+                val light = backdrop.touchLight
+                val strength = backdrop.touchLightStrength
+                val own = backdrop.coordinates
+                if (light != null && strength > 0.001f && own?.isAttached == true) {
+                    val center = light - own.positionInWindow()
+                    val radius = max(size.width, size.height) * TOUCH_LIGHT_RADIUS_FRACTION
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colorStops = arrayOf(
+                                0f to Color.White.copy(alpha = 0.95f * strength),
+                                0.22f to Color.White.copy(alpha = 0.38f * strength),
+                                0.55f to Color.White.copy(alpha = 0.10f * strength),
+                                1f to Color.Transparent,
+                            ),
+                            center = center,
+                            radius = radius,
+                        ),
+                        radius = radius,
+                        center = center,
+                    )
+                }
+            }
             drawLayer(backdrop.layer)
+        }
+    }
+
+/**
+ * Records the real screen content that moves behind floating glass without recording the glass
+ * chrome itself. Apply this to the full-screen content layer below the toolbar overlay.
+ */
+internal fun Modifier.captureGlassBackdropContent(backdrop: GlassBackdrop): Modifier =
+    onGloballyPositioned { coordinates ->
+        if (coordinates.isAttached) backdrop.dynamicContentCoordinates = coordinates
+    }.drawWithCache {
+        onDrawWithContent {
+            backdrop.dynamicContentLayer.record(
+                size = IntSize(ceil(size.width).toInt(), ceil(size.height).toInt()),
+            ) {
+                this@onDrawWithContent.drawContent()
+            }
+            drawLayer(backdrop.dynamicContentLayer)
         }
     }
 
@@ -93,22 +161,31 @@ internal fun Modifier.glassOptics(
     material: GlassMaterial,
     interactionProgress: Float,
     sampleMotionOffset: (() -> Float)?,
+    blurRadius: Dp?,
+    edgeBand: Dp?,
+    bendStrength: Dp?,
+    dispersion: Dp?,
+    specularStrength: Float,
+    performance: GlassPerformance,
 ): Modifier {
     val sampleLayer = rememberGraphicsLayer()
-    val runtimeShader = remember(palette.liquidOptics) {
-        if (palette.liquidOptics && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            RuntimeShader(LIQUID_GLASS_SHADER)
-        }
-        else null
+    val runtimeShader = remember(palette.liquidOptics, performance) {
+        if (
+            palette.liquidOptics &&
+            performance == GlassPerformance.High &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        ) {
+            runCatching { RuntimeShader(LIQUID_GLASS_SHADER) }.getOrNull()
+        } else null
     }
     var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var softwareBlurredSample by remember { mutableStateOf<ImageBitmap?>(null) }
     val density = LocalDensity.current
     val useSoftwareBlur = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
     val softwareBlurRadius = with(density) {
-        val configured = when (material) {
-            GlassMaterial.Standard -> if (palette.liquidOptics) 4.5.dp else 10.dp
-            GlassMaterial.ReaderChrome -> 28.dp
+        val configured = blurRadius ?: when (material) {
+            GlassMaterial.Standard -> if (palette.liquidOptics) 2.25.dp else 8.dp
+            GlassMaterial.ReaderChrome -> if (palette.liquidOptics) 3.5.dp else 12.dp
         }
         (configured.toPx() / SOFTWARE_BLUR_DOWNSAMPLE).roundToInt().coerceAtLeast(2)
     }
@@ -133,63 +210,97 @@ internal fun Modifier.glassOptics(
         }
     }
 
+    // While this surface is pressed it owns the shared press light: it publishes its centre in
+    // window coordinates and keeps the glow alive until the touch ends, then fades it out.
+    val lightOwnerToken = remember(backdrop) { Any() }
+    val lightActive = interactionProgress > 0.01f
+    LaunchedEffect(backdrop, lightActive) {
+        if (lightActive) {
+            backdrop.touchLightOwner = lightOwnerToken
+            backdrop.touchLightStrength = 1f
+            while (true) {
+                val own = coordinates
+                if (own == null || !own.isAttached) break
+                val centre = own.positionInWindow() +
+                    Offset(own.size.width / 2f, own.size.height / 2f)
+                backdrop.touchLight = centre
+                delay(TOUCH_LIGHT_TICK_MILLIS)
+            }
+            if (backdrop.touchLightOwner === lightOwnerToken) {
+                backdrop.touchLightOwner = null
+                backdrop.touchLightStrength = 0f
+                backdrop.touchLight = null
+            }
+        } else if (backdrop.touchLightOwner === lightOwnerToken) {
+            while (backdrop.touchLightStrength > 0.02f) {
+                backdrop.touchLightStrength *= TOUCH_LIGHT_DECAY
+                delay(TOUCH_LIGHT_TICK_MILLIS)
+            }
+            backdrop.touchLightStrength = 0f
+            backdrop.touchLight = null
+            backdrop.touchLightOwner = null
+        }
+    }
+
     return onGloballyPositioned { current ->
         if (current.isAttached) coordinates = current
     }.drawWithCache {
         val outline = shape.createOutline(size, layoutDirection, this)
         val cornerRadius = outline.cornerRadiusPx(size.minDimension)
-        val blurRadius = if (palette.liquidOptics) {
-            when (material) {
-                GlassMaterial.Standard -> 4.5.dp.toPx()
-                GlassMaterial.ReaderChrome -> 28.dp.toPx()
-            }
-        } else {
-            when (material) {
-                GlassMaterial.Standard -> 10.dp.toPx()
-                GlassMaterial.ReaderChrome -> 28.dp.toPx()
-            }
-        }
+        val blurRadiusPx = (blurRadius ?: when (material) {
+            GlassMaterial.Standard -> if (palette.liquidOptics) 2.25.dp else 8.dp
+            GlassMaterial.ReaderChrome -> if (palette.liquidOptics) 3.5.dp else 12.dp
+        }).toPx().coerceIn(0f, 32.dp.toPx()) * if (performance == GlassPerformance.Low) 0.65f else 1f
         val refractionBand = min(
-            when (material) {
-                GlassMaterial.Standard -> 10.dp.toPx()
-                GlassMaterial.ReaderChrome -> 13.dp.toPx()
-            },
+            (edgeBand ?: when (material) {
+                GlassMaterial.Standard -> 10.dp
+                GlassMaterial.ReaderChrome -> 13.dp
+            }).toPx().coerceAtLeast(0.5f),
             size.minDimension * 0.30f,
         )
         val refractionStrength = min(
-            when (material) {
-                GlassMaterial.Standard -> 4.5.dp.toPx()
-                GlassMaterial.ReaderChrome -> 7.dp.toPx()
-            },
+            (bendStrength ?: when (material) {
+                GlassMaterial.Standard -> 5.5.dp
+                GlassMaterial.ReaderChrome -> 7.dp
+            }).toPx().coerceAtLeast(0f),
             refractionBand * 0.58f,
         )
         val dispersion = min(
-            when (material) {
-                GlassMaterial.Standard -> 0.18.dp.toPx()
-                GlassMaterial.ReaderChrome -> 0.38.dp.toPx()
-            },
+            (dispersion ?: when (material) {
+                GlassMaterial.Standard -> 0.18.dp
+                GlassMaterial.ReaderChrome -> 0.32.dp
+            }).toPx().coerceAtLeast(0f),
             refractionStrength * 0.06f,
         )
         val edgeWidth = borderWidth.toPx().coerceAtLeast(0.75f)
+        // Refraction and blur need pixels from outside the component bounds. Capturing only the
+        // exact surface rectangle clamps every outward sample at the edge, which flattens the
+        // lens into a pale border. The padded crop keeps real neighbouring backdrop pixels.
+        val samplePaddingPx = ceil(
+            blurRadiusPx * 2.2f + refractionBand + refractionStrength * 2.2f,
+        ).toInt().coerceAtLeast(2)
         if (!useSoftwareBlur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             sampleLayer.compositingStrategy = CompositingStrategy.Offscreen
             sampleLayer.renderEffect = if (palette.liquidOptics) {
                 createGlassRenderEffect(
                     runtimeShader = runtimeShader,
-                    width = size.width,
-                    height = size.height,
+                    surfaceWidth = size.width,
+                    surfaceHeight = size.height,
+                    samplePadding = samplePaddingPx.toFloat(),
                     radius = cornerRadius,
-                    blurRadius = blurRadius,
+                    blurRadius = blurRadiusPx,
                     refractionBand = refractionBand,
                     refractionStrength = refractionStrength,
                     dispersion = dispersion,
+                    specularStrength = specularStrength,
+                    genericShape = outline is Outline.Generic,
                     ior = 1.47f,
                     interactionProgress = interactionProgress,
                 ).asComposeRenderEffect()
             } else {
                 AndroidRenderEffect.createBlurEffect(
-                    blurRadius,
-                    blurRadius,
+                    blurRadiusPx,
+                    blurRadiusPx,
                     AndroidShader.TileMode.CLAMP,
                 ).asComposeRenderEffect()
             }
@@ -197,30 +308,42 @@ internal fun Modifier.glassOptics(
             sampleLayer.renderEffect = null
         }
 
-        val surfaceSheen = Brush.verticalGradient(
+        val surfaceSheen = Brush.linearGradient(
             colorStops = arrayOf(
-                0f to palette.highlight.copy(alpha = palette.highlight.alpha * 0.32f),
-                0.16f to palette.highlight.copy(alpha = palette.highlight.alpha * 0.10f),
-                0.58f to Color.Transparent,
-                1f to palette.stroke.copy(alpha = palette.stroke.alpha * 0.14f),
+                0f to palette.highlight.copy(alpha = palette.highlight.alpha * 0.42f),
+                0.16f to Color.Transparent,
+                0.76f to Color.Transparent,
+                1f to palette.highlight.copy(alpha = palette.highlight.alpha * 0.32f),
             ),
+            start = Offset.Zero,
+            end = Offset(size.width, size.height),
+        )
+        val innerDepthRim = Brush.linearGradient(
+            colorStops = arrayOf(
+                0f to palette.highlight.copy(alpha = palette.highlight.alpha * 0.24f),
+                0.30f to Color.Transparent,
+                0.64f to palette.shadow.copy(alpha = palette.shadow.alpha * 0.16f),
+                1f to palette.shadow.copy(alpha = palette.shadow.alpha * 0.48f),
+            ),
+            start = Offset.Zero,
+            end = Offset(size.width, size.height),
         )
         val ambientRim = Brush.linearGradient(
             colorStops = arrayOf(
-                0f to palette.rimCool.copy(alpha = palette.rimCool.alpha * 0.72f),
-                0.30f to palette.rimCool,
+                0f to palette.highlight.copy(alpha = palette.highlight.alpha * 0.34f),
+                0.22f to palette.rimCool,
                 0.58f to Color.Transparent,
                 0.82f to palette.rimWarm,
-                1f to palette.rimWarm.copy(alpha = palette.rimWarm.alpha * 0.68f),
+                1f to palette.shadow.copy(alpha = palette.shadow.alpha * 0.26f),
             ),
             start = Offset.Zero,
             end = Offset(size.width, size.height),
         )
         val contourRim = Brush.linearGradient(
             colorStops = arrayOf(
-                0f to palette.highlight.copy(alpha = palette.highlight.alpha * 0.72f),
+                0f to palette.highlight.copy(alpha = palette.highlight.alpha * 0.82f),
                 0.20f to palette.strokeStrong,
-                0.52f to palette.stroke,
+                0.52f to palette.stroke.copy(alpha = palette.stroke.alpha * 0.60f),
                 0.80f to palette.rimCool.copy(alpha = palette.rimCool.alpha * 0.72f),
                 1f to palette.strokeStrong,
             ),
@@ -240,6 +363,11 @@ internal fun Modifier.glassOptics(
         )
 
         onDrawWithContent {
+            // LazyColumn reuses the same draw node while changing its window position. The
+            // backdrop clock forces this node to re-record and re-sample every frame, preventing
+            // the optical layer from disappearing after a long scroll.
+            val frameTick = backdrop.frameTick
+            if (frameTick == Int.MIN_VALUE) return@onDrawWithContent
             // Modal sheets are positioned by a parent layout modifier. Observing the live anchor
             // offset here invalidates this draw while that parent moves, so the sampled backdrop
             // follows the sheet throughout opening and drag gestures.
@@ -255,14 +383,26 @@ internal fun Modifier.glassOptics(
             } else {
                 Offset.Zero
             }
+            val dynamicContentCoordinates = backdrop.dynamicContentCoordinates
+            val dynamicContentOffset = if (
+                dynamicContentCoordinates?.isAttached == true &&
+                surfaceCoordinates?.isAttached == true
+            ) {
+                surfaceCoordinates.positionInWindow() -
+                    dynamicContentCoordinates.positionInWindow()
+            } else {
+                null
+            }
             val softwareBlur = useSoftwareBlur
+            val paddedWidth = size.width + samplePaddingPx * 2f
+            val paddedHeight = size.height + samplePaddingPx * 2f
             val layerSize = if (softwareBlur) {
                 IntSize(
-                    ceil(size.width / SOFTWARE_BLUR_DOWNSAMPLE).toInt().coerceAtLeast(1),
-                    ceil(size.height / SOFTWARE_BLUR_DOWNSAMPLE).toInt().coerceAtLeast(1),
+                    ceil(paddedWidth / SOFTWARE_BLUR_DOWNSAMPLE).toInt().coerceAtLeast(1),
+                    ceil(paddedHeight / SOFTWARE_BLUR_DOWNSAMPLE).toInt().coerceAtLeast(1),
                 )
             } else {
-                IntSize(ceil(size.width).toInt(), ceil(size.height).toInt())
+                IntSize(ceil(paddedWidth).toInt(), ceil(paddedHeight).toInt())
             }
             sampleLayer.record(size = layerSize) {
                 if (softwareBlur) {
@@ -271,13 +411,37 @@ internal fun Modifier.glassOptics(
                         scaleY = 1f / SOFTWARE_BLUR_DOWNSAMPLE,
                         pivot = Offset.Zero,
                     ) {
-                        translate(-sampleOffset.x, -sampleOffset.y) {
+                        translate(
+                            -sampleOffset.x + samplePaddingPx,
+                            -sampleOffset.y + samplePaddingPx,
+                        ) {
                             drawLayer(backdrop.layer)
+                            drawLayer(backdrop.lightLayer)
+                        }
+                        dynamicContentOffset?.let { offset ->
+                            translate(
+                                -offset.x + samplePaddingPx,
+                                -offset.y + samplePaddingPx,
+                            ) {
+                                drawLayer(backdrop.dynamicContentLayer)
+                            }
                         }
                     }
                 } else {
-                    translate(-sampleOffset.x, -sampleOffset.y) {
+                    translate(
+                        -sampleOffset.x + samplePaddingPx,
+                        -sampleOffset.y + samplePaddingPx,
+                    ) {
                         drawLayer(backdrop.layer)
+                        drawLayer(backdrop.lightLayer)
+                    }
+                    dynamicContentOffset?.let { offset ->
+                        translate(
+                            -offset.x + samplePaddingPx,
+                            -offset.y + samplePaddingPx,
+                        ) {
+                            drawLayer(backdrop.dynamicContentLayer)
+                        }
                     }
                 }
             }
@@ -287,24 +451,53 @@ internal fun Modifier.glassOptics(
                         image = blurred,
                         srcOffset = IntOffset.Zero,
                         srcSize = IntSize(blurred.width, blurred.height),
-                        dstOffset = IntOffset.Zero,
-                        dstSize = IntSize(ceil(size.width).toInt(), ceil(size.height).toInt()),
+                        dstOffset = IntOffset(-samplePaddingPx, -samplePaddingPx),
+                        dstSize = IntSize(
+                            (blurred.width * SOFTWARE_BLUR_DOWNSAMPLE).roundToInt(),
+                            (blurred.height * SOFTWARE_BLUR_DOWNSAMPLE).roundToInt(),
+                        ),
                         filterQuality = FilterQuality.Medium,
                     )
                 }
             } else {
-                drawLayer(sampleLayer)
+                translate(-samplePaddingPx.toFloat(), -samplePaddingPx.toFloat()) {
+                    drawLayer(sampleLayer)
+                }
             }
             drawRect(fill)
+            // The touched surface itself picks up a soft local glow around the press point.
             if (interactionProgress > 0f) {
-                drawRect(palette.rimCool.copy(alpha = 0.055f * interactionProgress))
+                val light = backdrop.touchLight
+                val own = coordinates
+                if (light != null && own?.isAttached == true) {
+                    val center = light - own.positionInWindow()
+                    val glowRadius = size.minDimension * 0.34f
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colorStops = arrayOf(
+                                0f to Color.White.copy(alpha = 0.55f * interactionProgress),
+                                0.35f to Color.White.copy(alpha = 0.16f * interactionProgress),
+                                1f to Color.Transparent,
+                            ),
+                            center = center,
+                            radius = glowRadius,
+                        ),
+                        radius = glowRadius,
+                        center = center,
+                    )
+                }
             }
             if (palette.liquidOptics) {
                 if (specular) drawRect(surfaceSheen)
                 drawOutline(
                     outline = outline,
+                    brush = innerDepthRim,
+                    style = Stroke(width = edgeWidth * 8f),
+                )
+                drawOutline(
+                    outline = outline,
                     brush = ambientRim,
-                    style = Stroke(width = edgeWidth * 4.4f),
+                    style = Stroke(width = edgeWidth * 4.8f),
                 )
                 drawOutline(
                     outline = outline,
@@ -330,6 +523,9 @@ internal fun Modifier.glassOptics(
 
 private const val SOFTWARE_BLUR_DOWNSAMPLE = 6f
 private const val SOFTWARE_BLUR_REFRESH_MS = 300L
+private const val TOUCH_LIGHT_TICK_MILLIS = 16L
+private const val TOUCH_LIGHT_DECAY = 0.82f
+private const val TOUCH_LIGHT_RADIUS_FRACTION = 0.24f
 
 /** Three separable box passes provide a deterministic Gaussian approximation for reader chrome. */
 private fun gaussianBlurFallback(
@@ -436,13 +632,16 @@ private fun Outline.cornerRadiusPx(shortSide: Float): Float = when (this) {
 @RequiresApi(Build.VERSION_CODES.S)
 private fun createGlassRenderEffect(
     runtimeShader: RuntimeShader?,
-    width: Float,
-    height: Float,
+    surfaceWidth: Float,
+    surfaceHeight: Float,
+    samplePadding: Float,
     radius: Float,
     blurRadius: Float,
     refractionBand: Float,
     refractionStrength: Float,
     dispersion: Float,
+    specularStrength: Float,
+    genericShape: Boolean,
     ior: Float,
     interactionProgress: Float,
 ): AndroidRenderEffect {
@@ -453,24 +652,32 @@ private fun createGlassRenderEffect(
     )
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || runtimeShader == null) return blur
 
-    runtimeShader.setFloatUniform("bounds", width, height)
-    runtimeShader.setFloatUniform("cornerRadius", radius)
-    runtimeShader.setFloatUniform("edgeBand", refractionBand)
-    runtimeShader.setFloatUniform("bend", refractionStrength)
-    runtimeShader.setFloatUniform("dispersion", dispersion)
-    runtimeShader.setFloatUniform("ior", ior)
-    runtimeShader.setFloatUniform("interaction", interactionProgress.coerceIn(0f, 1f))
-    val refraction = AndroidRenderEffect.createRuntimeShaderEffect(runtimeShader, "backdrop")
-    return AndroidRenderEffect.createChainEffect(refraction, blur)
+    return runCatching {
+        runtimeShader.setFloatUniform("surfaceOrigin", samplePadding, samplePadding)
+        runtimeShader.setFloatUniform("surfaceSize", surfaceWidth, surfaceHeight)
+        runtimeShader.setFloatUniform("cornerRadius", radius)
+        runtimeShader.setFloatUniform("edgeBand", refractionBand)
+        runtimeShader.setFloatUniform("bend", refractionStrength)
+        runtimeShader.setFloatUniform("dispersion", dispersion)
+        runtimeShader.setFloatUniform("specularStrength", specularStrength)
+        runtimeShader.setFloatUniform("genericShape", if (genericShape) 1f else 0f)
+        runtimeShader.setFloatUniform("ior", ior)
+        runtimeShader.setFloatUniform("interaction", interactionProgress.coerceIn(0f, 1f))
+        val refraction = AndroidRenderEffect.createRuntimeShaderEffect(runtimeShader, "backdrop")
+        AndroidRenderEffect.createChainEffect(refraction, blur)
+    }.getOrElse { blur }
 }
 
 private const val LIQUID_GLASS_SHADER = """
 uniform shader backdrop;
-uniform float2 bounds;
+uniform float2 surfaceOrigin;
+uniform float2 surfaceSize;
 uniform float cornerRadius;
 uniform float edgeBand;
 uniform float bend;
 uniform float dispersion;
+uniform float specularStrength;
+uniform float genericShape;
 uniform float ior;
 uniform float interaction;
 
@@ -479,58 +686,87 @@ float roundedRectDistance(float2 p, float2 halfSize, float radius) {
     return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
 }
 
-float2 roundedRectNormal(float2 p, float2 halfSize, float radius) {
-    float2 q = abs(p) - (halfSize - float2(radius));
-    float2 outside = max(q, 0.0);
-    if (dot(outside, outside) > 0.0001) {
-        return normalize(outside) * sign(p);
-    }
-    return q.x > q.y ? float2(sign(p.x), 0.0) : float2(0.0, sign(p.y));
+float2 sdfGradient(float2 p, float2 halfSize, float radius) {
+    // Finite differences keep the normal coupled to the exact SDF used by the mask. This is
+    // stable across straight edges and rounded corners, unlike a hand-authored border normal.
+    float epsilon = 1.0;
+    float dx = roundedRectDistance(p + float2(epsilon, 0.0), halfSize, radius) -
+        roundedRectDistance(p - float2(epsilon, 0.0), halfSize, radius);
+    float dy = roundedRectDistance(p + float2(0.0, epsilon), halfSize, radius) -
+        roundedRectDistance(p - float2(0.0, epsilon), halfSize, radius);
+    return normalize(float2(dx, dy));
 }
 
 half4 main(float2 coord) {
-    float2 halfSize = bounds * 0.5;
-    float2 centered = coord - halfSize;
-    float distance = roundedRectDistance(centered, halfSize, cornerRadius);
-    float rim = 1.0 - smoothstep(0.0, edgeBand, -distance);
-    if (rim <= 0.001) return backdrop.eval(coord);
+    float2 halfSize = surfaceSize * 0.5;
+    float2 centered = coord - surfaceOrigin - halfSize;
+    float safeRadius = max(0.0, min(cornerRadius, min(halfSize.x, halfSize.y) - 0.5));
+    float distance = roundedRectDistance(centered, halfSize, safeRadius);
+    if (distance > 0.0) return backdrop.eval(coord);
+    float insideDistance = max(-distance, 0.0);
+    float edgeWeight = 1.0 - smoothstep(0.0, max(edgeBand, 0.5), insideDistance);
+    if (genericShape > 0.5 || edgeWeight <= 0.001) return backdrop.eval(coord);
 
-    float2 normal = roundedRectNormal(centered, halfSize, cornerRadius);
-    float curvedRim = rim * rim * (3.0 - 2.0 * rim);
-    // The edge is treated as the circular cross-section of a thin glass slab. Its optical
-    // thickness increases toward the contour instead of applying a flat displacement.
-    float opticalThickness = sqrt(max(0.0, 1.0 - (1.0 - curvedRim) * (1.0 - curvedRim)));
-    float greenPower = (ior - 1.0) / ior;
-    float redIor = ior - 0.006;
-    float blueIor = ior + 0.010;
-    float redPower = (redIor - 1.0) / redIor;
-    float bluePower = (blueIor - 1.0) / blueIor;
-    float activeBend = bend * (1.0 + interaction * 0.18);
-    float activeDispersion = dispersion * (1.0 + interaction * 0.24);
-    float2 refracted = coord - normal * activeBend * opticalThickness;
-    float2 redSplit = normal * activeDispersion * opticalThickness * (redPower / greenPower - 1.0) * 72.0;
-    float2 blueSplit = normal * activeDispersion * opticalThickness * (bluePower / greenPower - 1.0) * 72.0;
+    float2 normal = sdfGradient(centered, halfSize, safeRadius);
+    float edgeWeightSquared = edgeWeight * edgeWeight;
+    float activeBend = bend * (1.0 + interaction * 0.15);
+    float activeDispersion = min(dispersion * (1.0 + interaction * 0.20), 0.5);
+    float normalizedDepth = clamp(insideDistance / max(edgeBand, 0.5), 0.0, 1.0);
+    float shoulder = smoothstep(0.08, 0.22, normalizedDepth) *
+        (1.0 - smoothstep(0.34, 0.58, normalizedDepth));
+    float2 refractionOffset = normal * activeBend * (edgeWeightSquared + shoulder * 0.14);
+    float2 refracted = coord - refractionOffset;
 
     half4 center = backdrop.eval(refracted);
-    // Crown-glass dispersion: red has the lowest IOR and blue the highest, so blue bends
-    // farther into the edge normal while red stays closer to the incident sample.
-    half red = backdrop.eval(refracted - redSplit).r;
-    half blue = backdrop.eval(refracted - blueSplit).b;
+    // Keep RGB separation below half a pixel: it should read as a close inspection detail,
+    // never as a red/blue neon outline.
+    half red = backdrop.eval(refracted - normal * activeDispersion).r;
+    half blue = backdrop.eval(refracted + normal * activeDispersion).b;
     half3 color = half3(red, center.g, blue);
 
     float2 lightDirection = normalize(float2(-0.72, -0.69));
     float facing = max(dot(normal, lightDirection), 0.0);
     float opposite = max(dot(normal, -lightDirection), 0.0);
+
+    // A second edge-local sample acts like the displaced content shadow in the CSS reference.
+    // The overscanned backdrop keeps this a real environmental sample instead of a clamped echo.
+    float foldWeight = pow(edgeWeight, 2.8) * 0.12;
+    half3 folded = backdrop.eval(
+        refracted - normal * activeBend * (0.75 + edgeWeight * 0.70)
+    ).rgb;
+    color = mix(color, folded, half(foldWeight));
+    float returnWeight = pow(edgeWeight, 3.2) * opposite * 0.075;
+    half3 depthReturn = backdrop.eval(
+        coord - normal * activeBend * 2.05 + lightDirection * activeBend * 0.28
+    ).rgb;
+    color = mix(color, depthReturn, half(returnWeight));
+
+    // The reference raises local contrast before adding its inset ridges. Restrict the same
+    // treatment to the contour so the center remains stable and naturally blurred.
+    float localContrast = 1.0 + edgeWeight * 0.10;
+    color = (color - half3(0.5)) * half(localContrast) + half3(0.5);
+
     // Schlick Fresnel reflectance gives the contour a strong grazing-angle return while
     // keeping head-on reflections restrained for readable controls.
     float f0 = ((ior - 1.0) / (ior + 1.0));
     f0 *= f0;
     float cosTheta = clamp(abs(dot(normal, lightDirection)), 0.0, 1.0);
     float fresnel = f0 + (1.0 - f0) * pow(1.0 - cosTheta, 5.0);
-    half highlight = half(curvedRim * fresnel * (0.30 + 0.70 * facing) * (0.34 + interaction * 0.08));
-    half coolReturn = half(curvedRim * pow(opposite, 2.1) * (0.035 + interaction * 0.018));
+    float activeSpecular = specularStrength * (1.0 + interaction * 0.10);
+    float innerRidge = smoothstep(0.07, 0.18, normalizedDepth) *
+        (1.0 - smoothstep(0.28, 0.43, normalizedDepth));
+    half highlight = half(
+        edgeWeight * fresnel * (0.30 + 0.70 * facing) * activeSpecular * 3.2 +
+        innerRidge * facing * activeSpecular * 0.34
+    );
+    half coolReturn = half(edgeWeight * pow(opposite, 2.1) * activeSpecular * 0.26);
     color += highlight * half3(1.0, 0.995, 0.98);
     color += coolReturn * half3(0.80, 1.0, 0.94);
-    return half4(color, center.a);
+    half depthShadow = half(
+        (edgeWeight * 0.65 + innerRidge * 0.48) *
+        pow(opposite, 1.8) * activeSpecular * 0.34
+    );
+    color -= depthShadow * half3(0.24, 0.22, 0.18);
+    return half4(clamp(color, half3(0.0), half3(1.0)), center.a);
 }
 """
