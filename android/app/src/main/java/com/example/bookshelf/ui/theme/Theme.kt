@@ -10,6 +10,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -17,6 +18,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bookshelf.domain.AppThemeMode
+import com.example.bookshelf.domain.AppVisualTheme
 
 private val BackendForest = Color(0xFF17382C)
 private val BackendForestSoft = Color(0xFF285341)
@@ -47,6 +49,28 @@ object GlassTokens {
     val backendPaper = Color(0xFFF2EEE3)
     val backendCard = Color(0xFFFAF7EF)
     val libraryDarkBase = CodexGray900
+    // Bookish theme tokens mirror docs/project-overview.html: paper, forest, ink, amber.
+    val bookishLightPaper = Color(0xFFF2EEE3)
+    val bookishLightPaperSecondary = Color(0xFFE7DFCE)
+    val bookishLightCard = Color(0xD1FFFCF4)
+    val bookishLightSolid = Color(0xFFFAF7EF)
+    val bookishLightInk = Color(0xFF18231D)
+    val bookishLightMuted = Color(0xFF687068)
+    val bookishLightFaint = Color(0xFF9A9B8D)
+    val bookishLightLine = Color(0x2418231D)
+    val bookishLightStrongLine = Color(0x4D18231D)
+    val bookishAmber = Color(0xFFC77932)
+    val bookishRed = Color(0xFFA13F35)
+
+    val bookishDarkPaper = Color(0xFF0C1511)
+    val bookishDarkPaperSecondary = Color(0xFF14251C)
+    val bookishDarkCard = Color(0xD614271D)
+    val bookishDarkSolid = Color(0xFF16291F)
+    val bookishDarkInk = Color(0xFFEEF4EE)
+    val bookishDarkMuted = Color(0xFFAAB9AD)
+    val bookishDarkFaint = Color(0xFF738177)
+    val bookishDarkLine = Color(0x21EDF4EE)
+    val bookishDarkStrongLine = Color(0x47EDF4EE)
 
     // Light: the same shallow warm paper used by the reader. Keeping the environment and
     // material in one narrow hue range prevents transparent cards changing color while moving.
@@ -66,16 +90,16 @@ object GlassTokens {
     val lightGlassShadow = Color(0xFF4A4B48).copy(alpha = 0.18f)
 
     // Dark: the same transparent optical material, tuned cooler and dimmer for night reading.
-    val darkBackdropBase = Color(0xFF05070A)
-    val darkBackdropTop = Color(0xFF0B1220)
-    val darkGlassFill = Color(0xFF0E1726).copy(alpha = 0.16f)
-    val darkGlassFillStrong = Color(0xFF111C2D).copy(alpha = 0.23f)
-    val darkGlassStroke = CodexGray0.copy(alpha = 0.13f)
-    val darkGlassStrokeStrong = Color(0xFF5EA9FF).copy(alpha = 0.30f)
-    val darkGlassHighlight = CodexGray0.copy(alpha = 0.28f)
-    val darkGlassRimWarm = Color(0xFFA78BFA).copy(alpha = 0.15f)
-    val darkGlassRimCool = Color(0xFF63C4FF).copy(alpha = 0.20f)
-    val darkGlassShadow = Color.Black.copy(alpha = 0.52f)
+    val darkBackdropBase = Color(0xFF0C1511)
+    val darkBackdropTop = Color(0xFF14251C)
+    val darkGlassFill = Color(0xFF14271D).copy(alpha = 0.16f)
+    val darkGlassFillStrong = Color(0xFF1B3626).copy(alpha = 0.23f)
+    val darkGlassStroke = Color(0xFFEFD5AF).copy(alpha = 0.14f)
+    val darkGlassStrokeStrong = Color(0xFFEFB273).copy(alpha = 0.32f)
+    val darkGlassHighlight = Color(0xFFF5F0E6).copy(alpha = 0.24f)
+    val darkGlassRimWarm = Color(0xFFEFB273).copy(alpha = 0.18f)
+    val darkGlassRimCool = Color(0xFF8FC2A1).copy(alpha = 0.16f)
+    val darkGlassShadow = Color.Black.copy(alpha = 0.56f)
 
     // Backdrop color washes — calm, low saturation, low alpha (readable).
     val washLight = listOf(
@@ -122,18 +146,18 @@ private val LightColors = lightColorScheme(
 )
 
 private val DarkColors = darkColorScheme(
-    primary = CodexBlue,
-    onPrimary = CodexGray1000,
-    primaryContainer = Color(0xFF163B63),
-    onPrimaryContainer = Color(0xFFD7E9FF),
-    secondary = Color(0xFF8CC4FF),
-    onSecondary = CodexGray1000,
-    secondaryContainer = Color(0xFF1B3554),
-    onSecondaryContainer = Color(0xFFE5F1FF),
-    tertiary = CodexGreen,
-    onTertiary = CodexGray1000,
-    tertiaryContainer = Color(0xFF173D25),
-    onTertiaryContainer = Color(0xFFD8F8E1),
+    primary = Color(0xFFEFB273),
+    onPrimary = Color(0xFF10281C),
+    primaryContainer = Color(0xFF5C3B20),
+    onPrimaryContainer = Color(0xFFF5DBB7),
+    secondary = Color(0xFF9BC2A3),
+    onSecondary = Color(0xFF10281C),
+    secondaryContainer = Color(0xFF214331),
+    onSecondaryContainer = Color(0xFFD9EADD),
+    tertiary = Color(0xFFD7A16D),
+    onTertiary = Color(0xFF10281C),
+    tertiaryContainer = Color(0xFF453321),
+    onTertiaryContainer = Color(0xFFF2D5B2),
     error = Color(0xFFFA423E),
     onError = CodexGray1000,
     errorContainer = Color(0xFF5C1C1B),
@@ -142,16 +166,77 @@ private val DarkColors = darkColorScheme(
     onBackground = CodexGray0,
     surface = GlassTokens.darkGlassFill,
     onSurface = CodexGray0,
-    surfaceVariant = Color(0xFF111827),
-    onSurfaceVariant = CodexGray0.copy(alpha = 0.70f),
-    surfaceContainerHighest = Color(0xFF182235),
-    outline = Color(0xFF5EA9FF).copy(alpha = 0.28f),
+    surfaceVariant = Color(0xFF1B2F24),
+    onSurfaceVariant = Color(0xFFB4C6B8),
+    surfaceContainerHighest = Color(0xFF223B2B),
+    outline = Color(0xFFEFB273).copy(alpha = 0.30f),
     outlineVariant = CodexGray0.copy(alpha = 0.08f),
     scrim = Color.Black.copy(alpha = 0.76f),
     inverseSurface = CodexGray100,
     inverseOnSurface = CodexGray900,
 )
 
+private val BookishLightColors = lightColorScheme(
+    primary = Color(0xFF17382C),
+    onPrimary = Color(0xFFF2EEE3),
+    primaryContainer = Color(0xFFD7E4D9),
+    onPrimaryContainer = Color(0xFF17382C),
+    secondary = Color(0xFFC77932),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFF2D8BC),
+    onSecondaryContainer = Color(0xFF4A2710),
+    tertiary = Color(0xFF285341),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFD9E8DC),
+    onTertiaryContainer = Color(0xFF17382C),
+    error = Color(0xFFA13F35),
+    onError = Color.White,
+    errorContainer = Color(0xFFFFDAD4),
+    onErrorContainer = Color(0xFF3C0603),
+    background = GlassTokens.bookishLightPaper,
+    onBackground = GlassTokens.bookishLightInk,
+    surface = GlassTokens.bookishLightCard,
+    onSurface = GlassTokens.bookishLightInk,
+    surfaceVariant = GlassTokens.bookishLightPaperSecondary,
+    onSurfaceVariant = GlassTokens.bookishLightMuted,
+    surfaceContainerHighest = GlassTokens.bookishLightSolid,
+    outline = GlassTokens.bookishLightStrongLine,
+    outlineVariant = GlassTokens.bookishLightLine,
+    scrim = Color(0x6618231D),
+    inverseSurface = Color(0xFF285341),
+    inverseOnSurface = Color(0xFFF2EEE3),
+)
+
+private val BookishDarkColors = darkColorScheme(
+    primary = Color(0xFF8FC2A1),
+    onPrimary = Color(0xFF10281C),
+    primaryContainer = Color(0xFF285341),
+    onPrimaryContainer = Color(0xFFB3D9BD),
+    secondary = Color(0xFFEFB273),
+    onSecondary = Color(0xFF3B210D),
+    secondaryContainer = Color(0xFF5C3B20),
+    onSecondaryContainer = Color(0xFFF5DBB7),
+    tertiary = Color(0xFFB3D9BD),
+    onTertiary = Color(0xFF10281C),
+    tertiaryContainer = Color(0xFF214331),
+    onTertiaryContainer = Color(0xFFD9EADD),
+    error = Color(0xFFEF8D82),
+    onError = Color(0xFF3C0603),
+    errorContainer = Color(0xFF5C1C1B),
+    onErrorContainer = Color(0xFFFFDAD8),
+    background = GlassTokens.bookishDarkPaper,
+    onBackground = GlassTokens.bookishDarkInk,
+    surface = GlassTokens.bookishDarkCard,
+    onSurface = GlassTokens.bookishDarkInk,
+    surfaceVariant = GlassTokens.bookishDarkPaperSecondary,
+    onSurfaceVariant = GlassTokens.bookishDarkMuted,
+    surfaceContainerHighest = GlassTokens.bookishDarkSolid,
+    outline = GlassTokens.bookishDarkStrongLine,
+    outlineVariant = GlassTokens.bookishDarkLine,
+    scrim = Color.Black.copy(alpha = 0.76f),
+    inverseSurface = Color(0xFFE7DFCE),
+    inverseOnSurface = Color(0xFF18231D),
+)
 private val BaseTypography = Typography()
 private val HeadingFamily = FontFamily.Serif
 private val BodyFamily = FontFamily.SansSerif
@@ -206,6 +291,32 @@ private val PageShelfTypography = Typography(
     labelSmall = BaseTypography.labelSmall.copy(fontFamily = BodyFamily, fontSize = 11.sp, letterSpacing = TextUnit.Unspecified),
 )
 
+/** Bookish is editorial rather than futuristic: quieter weight, more generous serif headings, and
+ * tighter paper-card corners that echo the backend project overview. */
+private val BookishTypography = PageShelfTypography.copy(
+    headlineLarge = PageShelfTypography.headlineLarge.copy(
+        fontSize = 34.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = (-0.2).sp,
+    ),
+    headlineMedium = PageShelfTypography.headlineMedium.copy(
+        fontSize = 27.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.sp,
+    ),
+    titleLarge = PageShelfTypography.titleLarge.copy(
+        fontSize = 22.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.sp,
+    ),
+    titleMedium = PageShelfTypography.titleMedium.copy(
+        fontSize = 17.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.sp,
+    ),
+    bodyLarge = PageShelfTypography.bodyLarge.copy(lineHeight = 25.sp),
+    bodyMedium = PageShelfTypography.bodyMedium.copy(lineHeight = 22.sp),
+)
 /** A considered corner hierarchy — small for chips/covers, large for bars, extra-large for sheets. */
 private val PageShelfShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
@@ -215,22 +326,39 @@ private val PageShelfShapes = Shapes(
     extraLarge = RoundedCornerShape(28.dp),
 )
 
+private val BookishShapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(10.dp),
+    large = RoundedCornerShape(14.dp),
+    extraLarge = RoundedCornerShape(18.dp),
+)
+val LocalAppVisualTheme = staticCompositionLocalOf { AppVisualTheme.LIQUID_GLASS }
+
 @Composable
-fun PageShelfTheme(themeMode: AppThemeMode = AppThemeMode.SYSTEM, content: @Composable () -> Unit) {
+fun PageShelfTheme(
+    themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    visualTheme: AppVisualTheme = AppVisualTheme.LIQUID_GLASS,
+    content: @Composable () -> Unit,
+) {
     val dark = when (themeMode) {
         AppThemeMode.SYSTEM -> isSystemInDarkTheme()
         AppThemeMode.LIGHT -> false
         AppThemeMode.DARK -> true
     }
-    val scheme = if (dark) DarkColors else LightColors
+    val scheme = when (visualTheme) {
+        AppVisualTheme.LIQUID_GLASS -> if (dark) DarkColors else LightColors
+        AppVisualTheme.BOOKISH -> if (dark) BookishDarkColors else BookishLightColors
+    }
     MaterialTheme(
         colorScheme = scheme,
-        typography = PageShelfTypography,
-        shapes = PageShelfShapes,
+        typography = if (visualTheme == AppVisualTheme.BOOKISH) BookishTypography else PageShelfTypography,
+        shapes = if (visualTheme == AppVisualTheme.BOOKISH) BookishShapes else PageShelfShapes,
     ) {
-        // Pin the content color to the active scheme so default-colored text stays readable
-        // everywhere, including directly over the backdrop.
-        CompositionLocalProvider(LocalContentColor provides scheme.onSurface) {
+        CompositionLocalProvider(
+            LocalAppVisualTheme provides visualTheme,
+            LocalContentColor provides scheme.onSurface,
+        ) {
             content()
         }
     }

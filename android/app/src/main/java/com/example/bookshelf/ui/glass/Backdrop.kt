@@ -24,11 +24,14 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.example.bookshelf.domain.AppVisualTheme
 import com.example.bookshelf.ui.theme.GlassTokens
+import com.example.bookshelf.ui.theme.LocalAppVisualTheme
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -46,8 +49,10 @@ fun LiquidBackdrop(
     content: @Composable BoxScope.() -> Unit = {},
 ) {
     val dark = isDarkScheme()
+    val bookish = LocalAppVisualTheme.current == AppVisualTheme.BOOKISH
     val glassBackdrop = rememberGlassBackdrop()
-    LaunchedEffect(glassBackdrop) {
+    LaunchedEffect(glassBackdrop, bookish) {
+        if (bookish) return@LaunchedEffect
         // A draw-phase heartbeat keeps recycled glass cards sampling the current backdrop while
         // a LazyColumn scrolls, even if Compose reuses their LayoutCoordinates and draw node.
         // Every tick re-records each glass surface's sample and the full content layer, so the
@@ -62,7 +67,11 @@ fun LiquidBackdrop(
     // The washes drift on a 32-42s cycle; advancing the phase at the same throttled cadence
     // keeps the living backdrop without paying for a full-screen redraw on every display frame.
     var phase by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(style) {
+    LaunchedEffect(style, bookish) {
+        if (bookish) {
+            phase = 0f
+            return@LaunchedEffect
+        }
         val cycleSeconds = if (style == LiquidBackdropStyle.Library) 32f else 42f
         val startedAt = withFrameNanos { it }
         while (true) {
@@ -83,14 +92,19 @@ fun LiquidBackdrop(
                 .fillMaxSize()
                 .captureGlassBackdrop(glassBackdrop),
         ) {
-            when (style) {
-                LiquidBackdropStyle.Study -> StudyBackdrop(
+            when {
+                bookish -> BookishBackdrop(
+                    dark = dark,
+                    width = availableWidth,
+                    height = availableHeight,
+                )
+                style == LiquidBackdropStyle.Study -> StudyBackdrop(
                     dark = dark,
                     phase = phase,
                     width = availableWidth,
                     height = availableHeight,
                 )
-                LiquidBackdropStyle.Library -> LibraryBackdropScene(dark = dark, phase = phase)
+                else -> LibraryBackdropScene(dark = dark, phase = phase)
             }
         }
         CompositionLocalProvider(LocalGlassBackdrop provides glassBackdrop) {
@@ -150,21 +164,67 @@ private fun BoxScope.StudyBackdrop(
 }
 
 @Composable
+private fun BoxScope.BookishBackdrop(
+    dark: Boolean,
+    width: Dp,
+    height: Dp,
+) {
+    val paper = if (dark) GlassTokens.bookishDarkPaper else GlassTokens.bookishLightPaper
+    val paperSecondary = if (dark) GlassTokens.bookishDarkPaperSecondary else GlassTokens.bookishLightPaperSecondary
+    val ink = if (dark) GlassTokens.bookishDarkInk else GlassTokens.bookishLightInk
+    val forest = if (dark) GlassTokens.bookishDarkMuted else GlassTokens.backendForest
+    val amber = if (dark) Color(0xFFEFB273) else GlassTokens.bookishAmber
+    Canvas(Modifier.fillMaxSize()) {
+        drawRect(Brush.verticalGradient(listOf(paperSecondary, paper)))
+        val spacing = 76.dp.toPx()
+        val line = ink.copy(alpha = if (dark) 0.09f else 0.10f)
+        var x = 0f
+        while (x <= size.width) {
+            drawLine(line, Offset(x, 0f), Offset(x, size.height), strokeWidth = 0.7.dp.toPx())
+            x += spacing
+        }
+        var y = 0f
+        while (y <= size.height) {
+            drawLine(line, Offset(0f, y), Offset(size.width, y), strokeWidth = 0.7.dp.toPx())
+            y += spacing
+        }
+        drawCircle(
+            color = forest.copy(alpha = if (dark) 0.08f else 0.045f),
+            radius = size.width * 0.40f,
+            center = Offset(size.width * 1.02f, size.height * 0.04f),
+            style = Stroke(width = 1.dp.toPx()),
+        )
+        drawCircle(
+            color = forest.copy(alpha = if (dark) 0.06f else 0.035f),
+            radius = size.width * 0.58f,
+            center = Offset(size.width * 1.02f, size.height * 0.04f),
+            style = Stroke(width = 1.dp.toPx()),
+        )
+        drawRect(
+            Brush.linearGradient(
+                colors = listOf(Color.Transparent, amber.copy(alpha = if (dark) 0.10f else 0.07f), Color.Transparent),
+                start = Offset(size.width * 0.08f, size.height * 0.92f),
+                end = Offset(size.width * 0.80f, size.height * 0.20f),
+            ),
+        )
+    }
+}
+@Composable
 private fun LibraryBackdropScene(dark: Boolean, phase: Float) {
     val tau = (phase * PI * 2.0).toFloat()
     val sway = sin(tau)
     val lift = cos(tau * 0.74f)
     val baseColors = if (dark) {
-        listOf(Color(0xFF05070A), Color(0xFF080D16), Color(0xFF0B1220))
+        listOf(Color(0xFF0C1511), Color(0xFF10281C), Color(0xFF14251C))
     } else {
         listOf(Color(0xFFF7F4EC), Color(0xFFF3F0E8), Color(0xFFFAF8F2))
     }
     // Keep the scene quiet, but give the glass something real to reveal and refract. The Gitee CSS
     // reference places the overlay over a structured background; these low-saturation washes are
     // the app's equivalent environment layer for screens that do not have an image backdrop.
-    val coolWash = if (dark) Color(0xFF339CFF).copy(alpha = 0.08f)
+    val coolWash = if (dark) Color(0xFF8FC2A1).copy(alpha = 0.08f)
     else Color(0xFFB7C1B8).copy(alpha = 0.12f)
-    val softWash = if (dark) Color(0xFF1D4ED8).copy(alpha = 0.055f)
+    val softWash = if (dark) Color(0xFFEFB273).copy(alpha = 0.055f)
     else Color(0xFFD5C7B8).copy(alpha = 0.12f)
     val sheen = if (dark) Color.White.copy(alpha = 0.02f)
     else Color.White.copy(alpha = 0.13f)

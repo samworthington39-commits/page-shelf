@@ -3,6 +3,7 @@ package com.example.bookshelf.domain
 import kotlin.math.abs
 
 enum class AppThemeMode { SYSTEM, LIGHT, DARK }
+enum class AppVisualTheme { LIQUID_GLASS, BOOKISH }
 enum class ReaderViewMode { PAGED, SCROLL }
 enum class ReaderFont { SANS, SERIF, SONG, HEI }
 enum class ReaderBackground { AUTO, PAPER, WARM, WHITE, GRAY, GREEN, DARK_GRAY, BLACK }
@@ -14,6 +15,7 @@ data class ReaderPreferences(
     val font: ReaderFont = ReaderFont.SERIF,
     val background: ReaderBackground = ReaderBackground.AUTO,
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    val visualTheme: AppVisualTheme = AppVisualTheme.LIQUID_GLASS,
     val progressSyncEnabled: Boolean = true,
 )
 

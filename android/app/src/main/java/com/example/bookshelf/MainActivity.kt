@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
         val container = (application as PageShelfApplication).container
         setContent {
             val preferences by container.settings.state.collectAsStateWithLifecycle()
-            PageShelfTheme(preferences.themeMode) {
+            PageShelfTheme(preferences.themeMode, preferences.visualTheme) {
                 SyncSystemBarIcons()
                 PageShelfApp(container)
             }
@@ -163,6 +163,7 @@ private fun PageShelfApp(container: AppContainer) {
             LibraryScreen(
                 viewModel = model,
                 bookRepository = container.books,
+                narrationController = container.narration,
                 onManage = { navController.navigate("manage") },
                 onBookClick = { book -> navController.openReader(book) },
             )

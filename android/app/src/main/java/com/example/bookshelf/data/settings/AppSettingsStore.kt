@@ -3,6 +3,7 @@ package com.example.bookshelf.data.settings
 import android.content.Context
 import androidx.core.content.edit
 import com.example.bookshelf.domain.AppThemeMode
+import com.example.bookshelf.domain.AppVisualTheme
 import com.example.bookshelf.domain.ReaderBackground
 import com.example.bookshelf.domain.ReaderFont
 import com.example.bookshelf.domain.ReaderPreferences
@@ -26,6 +27,7 @@ class AppSettingsStore(context: Context) {
             putString("font", value.font.name)
             putString("background", value.background.name)
             putString("theme", value.themeMode.name)
+            putString("visual_theme", value.visualTheme.name)
             putBoolean("progress_sync_enabled", value.progressSyncEnabled)
         }
     }
@@ -41,6 +43,7 @@ class AppSettingsStore(context: Context) {
         font = enumValue(preferences.getString("font", null), ReaderFont.SERIF),
         background = enumValue(preferences.getString("background", null), ReaderBackground.AUTO),
         themeMode = enumValue(preferences.getString("theme", null), AppThemeMode.SYSTEM),
+        visualTheme = enumValue(preferences.getString("visual_theme", null), AppVisualTheme.LIQUID_GLASS),
         progressSyncEnabled = preferences.getBoolean("progress_sync_enabled", true),
     ).normalized()
 

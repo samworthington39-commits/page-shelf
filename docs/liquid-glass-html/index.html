@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f6f2e9">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <title>页架 · Liquid Glass HTML</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#optics-lab">跳到光学参数</a>
+
+  <div class="ambient-field" aria-hidden="true">
+    <span></span><span></span><span></span>
+  </div>
+
+  <header class="page-header">
+    <a class="brand" href="#top" aria-label="页架液态玻璃演示首页">
+      <span class="brand-mark" aria-hidden="true">页</span>
+      <span><strong>页架</strong><small>LIQUID GLASS / HTML</small></span>
+    </a>
+    <div class="header-actions">
+      <button class="quiet-action" id="motion-toggle" type="button" aria-label="暂停背景运动" aria-pressed="false">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <span>暂停运动</span>
+      </button>
+      <button class="quiet-action" id="theme-toggle" type="button" aria-label="切换为夜间主题" aria-pressed="false">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-1-.1-1.4A7 7 0 0 1 12 3z"/></svg>
+        <span>夜间</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="top" class="demo-layout">
+    <section class="phone-stage" aria-labelledby="preview-title">
+      <div class="stage-label">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span id="preview-title">实时光学预览</span>
+        <span class="stage-tech" id="renderer-label">WebGL2</span>
+      </div>
+
+      <div class="phone" id="phone">
+        <div class="phone-frame">
+          <div class="speaker" aria-hidden="true"></div>
+          <div class="phone-screen" id="phone-screen">
+            <canvas id="glass-canvas" aria-hidden="true"></canvas>
+
+            <div class="status-bar" aria-hidden="true">
+              <span>9:41</span>
+              <span class="status-icons">
+                <svg viewBox="0 0 24 24"><path d="M3 18h2v3H3zm4-4h2v7H7zm4-4h2v11h-2zm4-4h2v15h-2z"/></svg>
+                <svg viewBox="0 0 24 24"><path d="M12 18.5 8.5 15a5 5 0 0 1 7 0zM5.7 12.2a9 9 0 0 1 12.6 0l-1.4 1.4a7 7 0 0 0-9.8 0zM2.9 9.4a13 13 0 0 1 18.2 0l-1.4 1.4a11 11 0 0 0-15.4 0z"/></svg>
+                <span class="battery"><i></i></span>
+              </span>
+            </div>
+
+            <header class="app-chrome">
+              <div class="top-row">
+                <div class="glass-surface shelf-capsule" data-glass data-material="reader" data-clear="true">
+                  <strong>我的书架</strong>
+                  <small>12 本 · 438.6 MB</small>
+                </div>
+
+                <button class="glass-surface icon-button" data-glass data-circle data-clear="true" id="search-button" type="button" aria-label="搜索书架" aria-expanded="false">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+                </button>
+                <button class="glass-surface icon-button" data-glass data-circle data-clear="true" id="refresh-button" type="button" aria-label="刷新书架">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+                </button>
+                <button class="glass-surface icon-button" data-glass data-circle data-clear="true" id="app-theme-button" type="button" aria-label="切换明暗主题">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+                </button>
+              </div>
+
+              <div class="search-wrap" id="search-wrap" hidden>
+                <label class="glass-surface search-field" data-glass data-material="reader">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+                  <input id="search-input" type="search" placeholder="搜索书名或作者" autocomplete="off">
+                  <span class="key-hint" aria-hidden="true">ESC</span>
+                </label>
+              </div>
+            </header>
+
+            <div class="canvas-accessibility sr-only" aria-label="书架内容">
+              <h2>最近阅读</h2>
+              <ul>
+                <li>长安的荔枝，马伯庸，已读 68%</li>
+                <li>山茶文具店，小川糸，已读 31%</li>
+                <li>人类群星闪耀时，斯蒂芬·茨威格，已读 82%</li>
+                <li>我与地坛，史铁生，已读 16%</li>
+              </ul>
+            </div>
+
+            <section class="glass-surface now-reading" data-glass data-material="reader" aria-label="正在阅读">
+              <div class="mini-cover" aria-hidden="true">荔</div>
+              <div class="now-copy">
+                <small>继续阅读</small>
+                <strong>长安的荔枝</strong>
+                <span><i></i></span>
+              </div>
+              <button class="play-button" id="play-button" type="button" aria-label="开始朗读" aria-pressed="false">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              </button>
+            </section>
+
+            <div class="gesture-bar" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="touch-hint"><span aria-hidden="true">↗</span> 按住任意玻璃控件，观察共享光源和边缘折射响应</p>
+    </section>
+
+    <section class="explanation" id="optics-lab" aria-labelledby="page-title">
+      <p class="eyebrow">ANDROID AGSL → WEBGL2 GLSL</p>
+      <h1 id="page-title">不是一层白色蒙版，<br><em>而是一块会采样环境的玻璃。</em></h1>
+      <p class="lede">这个 HTML 演示按手机 App 的渲染顺序复现：先记录环境，再模糊采样；只在圆角轮廓内侧弯折背景，并把色散与高光限制在窄边缘带中。</p>
+
+      <div class="source-route" aria-label="实现映射">
+        <div><span>01</span><p><strong>背景捕获</strong><small>GraphicsLayer → Canvas texture</small></p></div>
+        <i aria-hidden="true"></i>
+        <div><span>02</span><p><strong>光学处理</strong><small>RuntimeShader → WebGL fragment</small></p></div>
+        <i aria-hidden="true"></i>
+        <div><span>03</span><p><strong>内容覆盖</strong><small>Compose content → semantic HTML</small></p></div>
+      </div>
+
+      <form class="optics-panel" onsubmit="return false">
+        <div class="panel-heading">
+          <div>
+            <p class="section-index">OPTICS / LIVE</p>
+            <h2>光学参数</h2>
+          </div>
+          <button id="reset-button" class="reset-button" type="button">恢复 App 默认值</button>
+        </div>
+
+        <label class="range-control" for="blur-control">
+          <span><b>中心模糊</b><output id="blur-value">2.25 px</output></span>
+          <input id="blur-control" type="range" min="0" max="10" value="2.25" step="0.25">
+          <small>对应 Standard 材质的 Gaussian blur；Reader Chrome 自动加厚。</small>
+        </label>
+
+        <label class="range-control" for="edge-control">
+          <span><b>折射边缘带</b><output id="edge-value">10 px</output></span>
+          <input id="edge-control" type="range" min="2" max="22" value="10" step="0.5">
+          <small>SDF 轮廓向内的有效距离，中心区域保持稳定可读。</small>
+        </label>
+
+        <label class="range-control" for="bend-control">
+          <span><b>弯折强度</b><output id="bend-value">5.5 px</output></span>
+          <input id="bend-control" type="range" min="0" max="12" value="5.5" step="0.25">
+          <small>沿 SDF 法线偏移背景采样坐标，模拟厚玻璃边缘。</small>
+        </label>
+
+        <label class="range-control" for="dispersion-control">
+          <span><b>RGB 色散</b><output id="dispersion-value">0.18 px</output></span>
+          <input id="dispersion-control" type="range" min="0" max="1" value="0.18" step="0.02">
+          <small>与 App 一样保持在半像素内，只在近看时出现。</small>
+        </label>
+      </form>
+
+      <div class="code-notes">
+        <article>
+          <span class="note-number">A</span>
+          <div><h2>轮廓来自距离场</h2><p><code>roundedRectDistance()</code> 与有限差分法线让直边和圆角使用同一套折射逻辑。</p></div>
+        </article>
+        <article>
+          <span class="note-number">B</span>
+          <div><h2>高光服从 Fresnel</h2><p>使用折射率 <code>IOR 1.47</code> 的 Schlick 近似，掠射角变亮，正视中心保持克制。</p></div>
+        </article>
+        <article>
+          <span class="note-number">C</span>
+          <div><h2>触压会照亮邻近玻璃</h2><p>按压位置作为共享径向光源写回背景采样，随后按弹簧曲线衰减。</p></div>
+        </article>
+      </div>
+
+      <p class="fallback-note"><span aria-hidden="true">◇</span> 不支持 WebGL2 时自动退化为 CSS <code>backdrop-filter</code>，页面内容与交互仍可使用。</p>
+    </section>
+  </main>
+</body>
+</html>

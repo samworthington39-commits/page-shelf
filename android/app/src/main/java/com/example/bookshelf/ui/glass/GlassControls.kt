@@ -6,6 +6,7 @@
 package com.example.bookshelf.ui.glass
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -67,7 +69,62 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.example.bookshelf.domain.AppVisualTheme
+import com.example.bookshelf.ui.theme.LocalAppVisualTheme
 import kotlin.math.roundToInt
+
+@Composable
+private fun BookishTopBar(
+    title: String,
+    modifier: Modifier,
+    subtitle: String?,
+    onBack: (() -> Unit)?,
+    actions: @Composable RowScope.() -> Unit,
+) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (onBack != null) {
+                GlassIconButton(
+                    onClick = onBack,
+                    contentDescription = "返回",
+                    size = 38.dp,
+                    tint = MaterialTheme.colorScheme.primary,
+                    icon = { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null) },
+                )
+            }
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(start = if (onBack != null) 12.dp else 0.dp),
+            ) {
+                Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (subtitle != null) {
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { actions() }
+        }
+        Box(
+            Modifier
+                .padding(top = 10.dp)
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)),
+        )
+    }
+}
 
 /**
  * A floating Liquid Glass capsule top bar. The capsule sits BELOW the system status bar (the
@@ -83,6 +140,10 @@ fun GlassTopBar(
     onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
+    if (LocalAppVisualTheme.current == AppVisualTheme.BOOKISH) {
+        BookishTopBar(title, modifier, subtitle, onBack, actions)
+        return
+    }
     GlassSurface(
         modifier = modifier
             .fillMaxWidth()
@@ -133,6 +194,32 @@ fun GlassTopBar(
     }
 }
 
+@Composable
+private fun BookishButton(
+    onClick: () -> Unit,
+    modifier: Modifier,
+    enabled: Boolean,
+    filled: Boolean,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val shape = RoundedCornerShape(9.dp)
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .then(if (filled) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f), shape)),
+        shape = shape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (filled) MaterialTheme.colorScheme.primary else Color.Transparent,
+            contentColor = if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+        ),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 1.dp),
+        content = content,
+    )
+}
+
 /** A glass action button with a tactile spring press. */
 @Composable
 fun GlassButton(
@@ -140,8 +227,13 @@ fun GlassButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     filled: Boolean = true,
+    performance: GlassPerformance = GlassPerformance.Auto,
     content: @Composable RowScope.() -> Unit,
 ) {
+    if (LocalAppVisualTheme.current == AppVisualTheme.BOOKISH) {
+        BookishButton(onClick, modifier, enabled, filled, content)
+        return
+    }
     val interaction = remember { MutableInteractionSource() }
     val pressProgress = rememberPressProgress(interaction)
     val scale = 1f - pressProgress * 0.018f
@@ -158,6 +250,7 @@ fun GlassButton(
         interactionSource = interaction,
         enabled = enabled,
         shadow = false,
+        performance = performance,
     ) {
         Button(
             onClick = onClick,
@@ -178,6 +271,41 @@ fun GlassButton(
     }
 }
 
+@Composable
+private fun BookishIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier,
+    contentDescription: String?,
+    size: Dp,
+    enabled: Boolean,
+    tint: Color,
+    icon: @Composable () -> Unit,
+) {
+    val shape = RoundedCornerShape(9.dp)
+    Box(
+        modifier
+            .size(size)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.48f), shape),
+        contentAlignment = Alignment.Center,
+    ) {
+        IconButton(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (contentDescription != null) {
+                        Modifier.semantics { this.contentDescription = contentDescription }
+                    } else Modifier
+                ),
+        ) {
+            CompositionLocalProvider(LocalContentColor provides tint) { icon() }
+        }
+    }
+}
+
 /** A circular glass icon button with a tactile spring press. */
 @Composable
 fun GlassIconButton(
@@ -192,6 +320,10 @@ fun GlassIconButton(
     performance: GlassPerformance = GlassPerformance.Auto,
     icon: @Composable () -> Unit,
 ) {
+    if (LocalAppVisualTheme.current == AppVisualTheme.BOOKISH) {
+        BookishIconButton(onClick, modifier, contentDescription, size, enabled, tint, icon)
+        return
+    }
     val interaction = remember { MutableInteractionSource() }
     val pressProgress = rememberPressProgress(interaction)
     val scale = 1f - pressProgress * 0.018f
@@ -241,25 +373,32 @@ fun GlassChip(
     leadingIcon: (@Composable () -> Unit)? = null,
 ) {
     val palette = glassPalette()
+    val bookish = LocalAppVisualTheme.current == AppVisualTheme.BOOKISH
     FilterChip(
         selected = selected,
         onClick = onClick,
         label = { Text(label) },
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = if (bookish) RoundedCornerShape(8.dp) else RoundedCornerShape(16.dp),
         leadingIcon = leadingIcon,
         colors = FilterChipDefaults.filterChipColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else palette.fill,
-            labelColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-            iconColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            containerColor = if (selected) {
+                if (bookish) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+            } else if (bookish) MaterialTheme.colorScheme.surfaceContainerHighest else palette.fill,
+            labelColor = if (selected) {
+                if (bookish) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+            } else MaterialTheme.colorScheme.onSurface,
+            iconColor = if (selected) {
+                if (bookish) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+            } else MaterialTheme.colorScheme.onSurfaceVariant,
             disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
         ),
         border = FilterChipDefaults.filterChipBorder(
             enabled = true,
             selected = selected,
-            borderColor = palette.strokeStrong,
-            selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
+            borderColor = if (bookish) MaterialTheme.colorScheme.outline else palette.strokeStrong,
+            selectedBorderColor = if (bookish) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
             disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
             disabledSelectedBorderColor = MaterialTheme.colorScheme.outlineVariant,
         ),
@@ -285,7 +424,8 @@ fun GlassTextField(
     focusRequester: FocusRequester? = null,
     performance: GlassPerformance = GlassPerformance.Auto,
 ) {
-    val shape = RoundedCornerShape(20.dp)
+    val bookish = LocalAppVisualTheme.current == AppVisualTheme.BOOKISH
+    val shape = if (bookish) RoundedCornerShape(8.dp) else RoundedCornerShape(20.dp)
     GlassSurface(
         modifier = modifier,
         shape = shape,
@@ -315,10 +455,10 @@ fun GlassTextField(
             shape = shape,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                errorContainerColor = Color.Transparent,
+                unfocusedContainerColor = if (bookish) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent,
+                errorContainerColor = if (bookish) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent,
                 focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
-                unfocusedBorderColor = Color.Transparent,
+                unfocusedBorderColor = if (bookish) MaterialTheme.colorScheme.outline.copy(alpha = 0.48f) else Color.Transparent,
                 errorBorderColor = MaterialTheme.colorScheme.error,
                 focusedLabelColor = MaterialTheme.colorScheme.primary,
                 unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -414,6 +554,26 @@ fun GlassSectionTitle(
     subtitle: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    if (LocalAppVisualTheme.current == AppVisualTheme.BOOKISH) {
+        Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(width = 28.dp, height = 2.dp)
+                    .background(MaterialTheme.colorScheme.secondary),
+            )
+            Column(Modifier.padding(start = 10.dp)) {
+                Text(title, style = MaterialTheme.typography.titleLarge)
+                if (subtitle != null) {
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        return
+    }
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
@@ -452,6 +612,20 @@ fun FloatingCapsuleContainer(
     topBar: @Composable () -> Unit,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    if (LocalAppVisualTheme.current == AppVisualTheme.BOOKISH) {
+        Column(modifier.fillMaxSize()) {
+            topBar()
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(top = contentPadding),
+            ) {
+                content()
+            }
+        }
+        return
+    }
     val density = LocalDensity.current
     val statusTop = WindowInsets.statusBars.getTop(density)
     var barHeightPx by remember {

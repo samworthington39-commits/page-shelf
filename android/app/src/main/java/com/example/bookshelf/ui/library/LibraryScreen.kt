@@ -99,6 +99,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.example.bookshelf.data.repository.BookRepository
 import com.example.bookshelf.domain.Book
+import com.example.bookshelf.narration.NarrationController
 import com.example.bookshelf.domain.DownloadState
 import com.example.bookshelf.domain.DownloadStatus
 import com.example.bookshelf.domain.LibraryShelf
@@ -127,6 +128,7 @@ import kotlin.math.roundToInt
 fun LibraryScreen(
     viewModel: LibraryViewModel,
     bookRepository: BookRepository,
+    narrationController: NarrationController,
     onManage: () -> Unit,
     onBookClick: (Book) -> Unit,
 ) {
@@ -134,11 +136,17 @@ fun LibraryScreen(
     var largeBook by remember { mutableStateOf<Book?>(null) }
     var searchVisible by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var narrationExpanded by remember { mutableStateOf(false) }
+    val narrationState by narrationController.state.collectAsStateWithLifecycle()
     val shelves = (state as? LibraryUiState.Content)?.shelves.orEmpty()
     val shelfPager = rememberPagerState(pageCount = { shelves.size })
     val searchFocusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(narrationState.isActive) {
+        if (!narrationState.isActive) narrationExpanded = false
+    }
 
     LaunchedEffect(shelves.size) {
         if (shelves.isNotEmpty() && shelfPager.currentPage > shelves.lastIndex) {
@@ -209,8 +217,6 @@ fun LibraryScreen(
                 }
             }
         }
-    }
-
     largeBook?.let { book ->
         GlassDialog(
             onDismissRequest = { largeBook = null },
@@ -223,6 +229,35 @@ fun LibraryScreen(
             },
             dismissButton = { TextButton(onClick = { largeBook = null }) { Text("取消") } },
         )
+    }
+
+    AnimatedVisibility(
+        visible = narrationState.isActive,
+        enter = fadeIn(tween(220)) + slideInVertically(tween(360, easing = FastOutSlowInEasing)) { it },
+        exit = fadeOut(tween(180)) + slideOutVertically(tween(260, easing = FastOutSlowInEasing)) { it },
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .zIndex(20f),
+    ) {
+        NarrationMiniPlayer(
+            controller = narrationController,
+            onOpen = { narrationExpanded = true },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    AnimatedVisibility(
+        visible = narrationExpanded,
+        enter = fadeIn(tween(180)) + slideInVertically(tween(420, easing = FastOutSlowInEasing)) { it },
+        exit = fadeOut(tween(160)) + slideOutVertically(tween(300, easing = FastOutSlowInEasing)) { it },
+        modifier = Modifier.fillMaxSize().zIndex(30f),
+    ) {
+        com.example.bookshelf.ui.narration.NarrationScreen(
+            controller = narrationController,
+            bookId = narrationState.bookId.orEmpty(),
+            onBack = { narrationExpanded = false },
+        )
+    }
     }
 }
 
@@ -380,7 +415,7 @@ private fun ShelfTitleGlass(
             if (shelves.isEmpty()) {
                 ShelfTitleContent(
                     name = "书架",
-                    detail = "Page Shelf",
+                    detail = "暂无书架",
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -455,10 +490,12 @@ private fun ShelfPager(
         // Pager already prefetches in the scroll direction. Keeping another complete
         // LazyColumn on each side composed can start cover work halfway through a drag.
         beyondViewportPageCount = 0,
-        key = { page -> state.shelves[page].id },
+        // The pager can briefly retain its old nearest range while a shelf is removed or hidden.
+        // Never index the latest list directly from the key/content lambdas during that frame.
+        key = { page -> state.shelves.getOrNull(page)?.id ?: "shelf-placeholder-$page" },
         modifier = Modifier.fillMaxSize(),
     ) { page ->
-        val shelf = state.shelves[page]
+        val shelf = state.shelves.getOrNull(page) ?: return@HorizontalPager
         ShelfPage(
             shelf = shelf,
             active = pager.settledPage == page,
@@ -746,6 +783,7 @@ private fun LockedShelf(
                 Modifier.size(84.dp),
                 shape = CircleShape,
                 specular = true,
+                performance = GlassPerformance.BackdropBlur,
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Icon(
@@ -783,12 +821,14 @@ private fun LockedShelf(
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { if (pin.length == 4 && !busy) onUnlock() }),
+                    performance = GlassPerformance.BackdropBlur,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(14.dp))
                 GlassButton(
                     onClick = onUnlock,
                     enabled = pin.length == 4 && !busy,
+                    performance = GlassPerformance.BackdropBlur,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                 ) {
                     if (busy) {

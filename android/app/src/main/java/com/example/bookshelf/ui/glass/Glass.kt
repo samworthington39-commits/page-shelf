@@ -28,7 +28,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -36,7 +38,9 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.bookshelf.domain.AppVisualTheme
 import com.example.bookshelf.ui.theme.GlassTokens
+import com.example.bookshelf.ui.theme.LocalAppVisualTheme
 import kotlin.math.max
 import androidx.compose.runtime.withFrameNanos
 
@@ -56,8 +60,15 @@ internal data class GlassPalette(
 /** Optical density presets. Reader chrome uses a thicker, more strongly diffusing glass slab. */
 enum class GlassMaterial { Standard, ReaderChrome }
 
-/** Rendering cost policy for a glass surface. Auto follows the device capability. */
-enum class GlassPerformance { Auto, High, Low, Static }
+/**
+ * Rendering cost policy for a glass surface. Auto follows the device capability.
+ *
+ * [BackdropBlur] keeps the translucent Gaussian-blurred look but only samples the
+ * environmental backdrop and light layers. It never records the dynamic content layer
+ * and never creates the liquid-optics runtime shader, so it is safe for surfaces that
+ * are themselves rendered inside [GlassOpticsKt.captureGlassBackdropContent].
+ */
+enum class GlassPerformance { Auto, High, Low, Static, BackdropBlur }
 
 /**
  * A draw-only invalidation hook for transient parent animations. AnimatedVisibility can move
@@ -93,9 +104,31 @@ internal fun isDarkScheme(): Boolean = MaterialTheme.colorScheme.background.lumi
 @Composable
 internal fun glassPalette(): GlassPalette {
     val dark = isDarkScheme()
-    return if (dark) {
-        GlassPalette(
-            // Night mode keeps the same physical stack with a cooler, lower-energy light return.
+    val bookish = LocalAppVisualTheme.current == AppVisualTheme.BOOKISH
+    return when {
+        bookish && dark -> GlassPalette(
+            liquidOptics = false,
+            fill = GlassTokens.bookishDarkCard,
+            fillStrong = GlassTokens.bookishDarkSolid,
+            stroke = GlassTokens.bookishDarkLine,
+            strokeStrong = GlassTokens.bookishDarkStrongLine,
+            highlight = Color.White.copy(alpha = 0.08f),
+            rimWarm = GlassTokens.bookishAmber.copy(alpha = 0.18f),
+            rimCool = GlassTokens.bookishDarkMuted.copy(alpha = 0.12f),
+            shadow = Color.Black.copy(alpha = 0.28f),
+        )
+        bookish -> GlassPalette(
+            liquidOptics = false,
+            fill = GlassTokens.bookishLightCard,
+            fillStrong = GlassTokens.bookishLightSolid,
+            stroke = GlassTokens.bookishLightLine,
+            strokeStrong = GlassTokens.bookishLightStrongLine,
+            highlight = Color.White.copy(alpha = 0.22f),
+            rimWarm = GlassTokens.bookishAmber.copy(alpha = 0.18f),
+            rimCool = GlassTokens.backendForestSoft.copy(alpha = 0.10f),
+            shadow = Color(0xFF232A20).copy(alpha = 0.14f),
+        )
+        dark -> GlassPalette(
             liquidOptics = true,
             fill = GlassTokens.darkGlassFill,
             fillStrong = GlassTokens.darkGlassFillStrong,
@@ -106,8 +139,7 @@ internal fun glassPalette(): GlassPalette {
             rimCool = GlassTokens.darkGlassRimCool,
             shadow = GlassTokens.darkGlassShadow,
         )
-    } else {
-        GlassPalette(
+        else -> GlassPalette(
             liquidOptics = true,
             fill = GlassTokens.lightGlassFill,
             fillStrong = GlassTokens.lightGlassFillStrong,
@@ -120,7 +152,60 @@ internal fun glassPalette(): GlassPalette {
         )
     }
 }
-
+@Composable
+private fun BookishSurface(
+    modifier: Modifier,
+    shape: Shape,
+    tint: Color?,
+    shadow: Boolean,
+    borderWidth: Dp,
+    material: GlassMaterial,
+    tintOpacity: Float?,
+    enabled: Boolean,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val dark = isDarkScheme()
+    val baseFill = tint ?: if (material == GlassMaterial.ReaderChrome) {
+        if (dark) GlassTokens.bookishDarkSolid else GlassTokens.bookishLightSolid
+    } else {
+        if (dark) GlassTokens.bookishDarkCard else GlassTokens.bookishLightCard
+    }
+    val fill = baseFill.copy(
+        alpha = (tintOpacity ?: baseFill.alpha).coerceIn(0f, 1f) * if (enabled) 1f else 0.72f,
+    )
+    val border = if (dark) GlassTokens.bookishDarkStrongLine else GlassTokens.bookishLightStrongLine
+    val accent = MaterialTheme.colorScheme.primary.copy(alpha = if (dark) 0.32f else 0.22f)
+    Box(
+        modifier = modifier
+            .then(
+                if (shadow) {
+                    Modifier.shadow(
+                        elevation = 2.dp,
+                        shape = shape,
+                        ambientColor = if (dark) Color.Black.copy(alpha = 0.22f) else Color(0xFF232A20).copy(alpha = 0.10f),
+                        spotColor = if (dark) Color.Black.copy(alpha = 0.24f) else Color(0xFF232A20).copy(alpha = 0.10f),
+                    )
+                } else Modifier
+            )
+            .clip(shape)
+            .background(fill)
+            .drawBehind {
+                // A printed rule replaces the optical rim: quiet, editorial, and recognisable as
+                // a separate paper system rather than a disabled glass card.
+                drawLine(
+                    color = accent,
+                    start = Offset(0f, 1.dp.toPx()),
+                    end = Offset(size.width, 1.dp.toPx()),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            }
+            .border(borderWidth, border, shape),
+    ) {
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+            content()
+        }
+    }
+}
 /**
  * A frosted glass panel: mostly-opaque warm fill for readability, a thin bright edge, a faint
  * top sheen, and a soft low shadow.
@@ -148,6 +233,20 @@ fun GlassSurface(
     performance: GlassPerformance = GlassPerformance.Auto,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    if (LocalAppVisualTheme.current == AppVisualTheme.BOOKISH) {
+        BookishSurface(
+            modifier = modifier,
+            shape = shape,
+            tint = tint,
+            shadow = shadow,
+            borderWidth = borderWidth,
+            material = material,
+            tintOpacity = tintOpacity,
+            enabled = enabled,
+            content = content,
+        )
+        return
+    }
     val palette = glassPalette()
     val motionInvalidation = sampleMotionOffset ?: LocalGlassMotionInvalidation.current
     val baseTint = tint ?: when (material) {
@@ -159,9 +258,9 @@ fun GlassSurface(
             .coerceIn(0f, 1f) * if (enabled) 1f else 0.72f,
     )
     val backdrop = LocalGlassBackdrop.current
-    // Both themes use the same live sampled optical path. Night mode swaps the palette and keeps
-    // the lens quieter, but never falls back to a flat opaque card.
-    val sampleBackdrop = backdrop != null && performance != GlassPerformance.Static
+    // Liquid Glass samples the shared environment; Bookish intentionally uses a quieter paper/card
+    // stack so the app matches the backend overview instead of looking like frosted chrome.
+    val sampleBackdrop = palette.liquidOptics && backdrop != null && performance != GlassPerformance.Static
     val resolvedPerformance = when (performance) {
         GlassPerformance.Auto -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             GlassPerformance.High
@@ -222,6 +321,8 @@ fun GlassSurface(
                         dispersion = dispersion,
                         specularStrength = specularStrength.coerceIn(0f, 0.25f),
                         performance = resolvedPerformance,
+                        useLiquidOptics = performance != GlassPerformance.BackdropBlur,
+                        sampleDynamicContent = performance != GlassPerformance.BackdropBlur,
                     )
                 } else {
                     Modifier

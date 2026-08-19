@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.bookshelf.BuildConfig
 import com.example.bookshelf.domain.AppThemeMode
+import com.example.bookshelf.domain.AppVisualTheme
 import com.example.bookshelf.domain.ReaderBackground
 import com.example.bookshelf.domain.ReaderFont
 import com.example.bookshelf.ui.ManageViewModel
@@ -120,7 +121,19 @@ fun ManageScreen(viewModel: ManageViewModel, onBack: () -> Unit, onServerSetting
             item {
                 GlassSurface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, shadow = true) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        GlassSectionTitle("界面外观", "显示、字体与阅读背景")
+                        GlassSectionTitle("界面外观", "主题、明暗、字体与阅读背景")
+                        PreferenceChips(
+                            title = "界面主题",
+                            values = AppVisualTheme.entries,
+                            selected = state.preferences.visualTheme,
+                            label = {
+                                when (it) {
+                                    AppVisualTheme.LIQUID_GLASS -> "液态玻璃"
+                                    AppVisualTheme.BOOKISH -> "书香"
+                                }
+                            },
+                            onSelect = { selected -> viewModel.updatePreferences { it.copy(visualTheme = selected) } },
+                        )
                         PreferenceChips(
                             title = "明暗模式",
                             values = AppThemeMode.entries,

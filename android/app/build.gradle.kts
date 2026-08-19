@@ -14,8 +14,8 @@ android {
         applicationId = "com.example.bookshelf"
         minSdk = 26
         targetSdk = 36
-        versionCode = 18
-        versionName = "1.3.0"
+        versionCode = 19
+        versionName = "1.4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
         manifestPlaceholders["appLabel"] = "页架"
@@ -45,11 +45,8 @@ android {
 
     buildTypes {
         debug {
-            // Keep the Liquid Glass validation build installable alongside the
-            // production package instead of replacing the user's existing app.
-            applicationIdSuffix = ".liquidglass"
-            versionNameSuffix = "-liquidglass"
-            manifestPlaceholders["appLabel"] = "页架 · Liquid Glass"
+            // This branch is the normal package: it replaces the v1.2 app in place.
+            manifestPlaceholders["appLabel"] = "页架"
         }
 
         release {

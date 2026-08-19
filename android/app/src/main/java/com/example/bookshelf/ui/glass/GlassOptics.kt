@@ -167,10 +167,13 @@ internal fun Modifier.glassOptics(
     dispersion: Dp?,
     specularStrength: Float,
     performance: GlassPerformance,
+    useLiquidOptics: Boolean = true,
+    sampleDynamicContent: Boolean = true,
 ): Modifier {
     val sampleLayer = rememberGraphicsLayer()
-    val runtimeShader = remember(palette.liquidOptics, performance) {
+    val runtimeShader = remember(palette.liquidOptics, performance, useLiquidOptics) {
         if (
+            useLiquidOptics &&
             palette.liquidOptics &&
             performance == GlassPerformance.High &&
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
@@ -182,10 +185,11 @@ internal fun Modifier.glassOptics(
     var softwareBlurredSample by remember { mutableStateOf<ImageBitmap?>(null) }
     val density = LocalDensity.current
     val useSoftwareBlur = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+    val usesLiquidOptics = useLiquidOptics && palette.liquidOptics
     val softwareBlurRadius = with(density) {
         val configured = blurRadius ?: when (material) {
-            GlassMaterial.Standard -> if (palette.liquidOptics) 2.25.dp else 8.dp
-            GlassMaterial.ReaderChrome -> if (palette.liquidOptics) 3.5.dp else 12.dp
+            GlassMaterial.Standard -> if (usesLiquidOptics) 2.25.dp else 8.dp
+            GlassMaterial.ReaderChrome -> if (usesLiquidOptics) 3.5.dp else 12.dp
         }
         (configured.toPx() / SOFTWARE_BLUR_DOWNSAMPLE).roundToInt().coerceAtLeast(2)
     }
@@ -247,31 +251,44 @@ internal fun Modifier.glassOptics(
     }.drawWithCache {
         val outline = shape.createOutline(size, layoutDirection, this)
         val cornerRadius = outline.cornerRadiusPx(size.minDimension)
+        val usesLiquidOptics = useLiquidOptics && palette.liquidOptics
         val blurRadiusPx = (blurRadius ?: when (material) {
-            GlassMaterial.Standard -> if (palette.liquidOptics) 2.25.dp else 8.dp
-            GlassMaterial.ReaderChrome -> if (palette.liquidOptics) 3.5.dp else 12.dp
+            GlassMaterial.Standard -> if (usesLiquidOptics) 2.25.dp else 8.dp
+            GlassMaterial.ReaderChrome -> if (usesLiquidOptics) 3.5.dp else 12.dp
         }).toPx().coerceIn(0f, 32.dp.toPx()) * if (performance == GlassPerformance.Low) 0.65f else 1f
-        val refractionBand = min(
-            (edgeBand ?: when (material) {
-                GlassMaterial.Standard -> 10.dp
-                GlassMaterial.ReaderChrome -> 13.dp
-            }).toPx().coerceAtLeast(0.5f),
-            size.minDimension * 0.30f,
-        )
-        val refractionStrength = min(
-            (bendStrength ?: when (material) {
-                GlassMaterial.Standard -> 5.5.dp
-                GlassMaterial.ReaderChrome -> 7.dp
-            }).toPx().coerceAtLeast(0f),
-            refractionBand * 0.58f,
-        )
-        val dispersion = min(
-            (dispersion ?: when (material) {
-                GlassMaterial.Standard -> 0.18.dp
-                GlassMaterial.ReaderChrome -> 0.32.dp
-            }).toPx().coerceAtLeast(0f),
-            refractionStrength * 0.06f,
-        )
+        val refractionBand = if (usesLiquidOptics) {
+            min(
+                (edgeBand ?: when (material) {
+                    GlassMaterial.Standard -> 10.dp
+                    GlassMaterial.ReaderChrome -> 13.dp
+                }).toPx().coerceAtLeast(0.5f),
+                size.minDimension * 0.30f,
+            )
+        } else {
+            0f
+        }
+        val refractionStrength = if (usesLiquidOptics) {
+            min(
+                (bendStrength ?: when (material) {
+                    GlassMaterial.Standard -> 5.5.dp
+                    GlassMaterial.ReaderChrome -> 7.dp
+                }).toPx().coerceAtLeast(0f),
+                refractionBand * 0.58f,
+            )
+        } else {
+            0f
+        }
+        val dispersion = if (usesLiquidOptics) {
+            min(
+                (dispersion ?: when (material) {
+                    GlassMaterial.Standard -> 0.18.dp
+                    GlassMaterial.ReaderChrome -> 0.32.dp
+                }).toPx().coerceAtLeast(0f),
+                refractionStrength * 0.06f,
+            )
+        } else {
+            0f
+        }
         val edgeWidth = borderWidth.toPx().coerceAtLeast(0.75f)
         // Refraction and blur need pixels from outside the component bounds. Capturing only the
         // exact surface rectangle clamps every outward sample at the edge, which flattens the
@@ -281,7 +298,7 @@ internal fun Modifier.glassOptics(
         ).toInt().coerceAtLeast(2)
         if (!useSoftwareBlur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             sampleLayer.compositingStrategy = CompositingStrategy.Offscreen
-            sampleLayer.renderEffect = if (palette.liquidOptics) {
+            sampleLayer.renderEffect = if (usesLiquidOptics) {
                 createGlassRenderEffect(
                     runtimeShader = runtimeShader,
                     surfaceWidth = size.width,
@@ -385,6 +402,7 @@ internal fun Modifier.glassOptics(
             }
             val dynamicContentCoordinates = backdrop.dynamicContentCoordinates
             val dynamicContentOffset = if (
+                sampleDynamicContent &&
                 dynamicContentCoordinates?.isAttached == true &&
                 surfaceCoordinates?.isAttached == true
             ) {
@@ -418,12 +436,14 @@ internal fun Modifier.glassOptics(
                             drawLayer(backdrop.layer)
                             drawLayer(backdrop.lightLayer)
                         }
-                        dynamicContentOffset?.let { offset ->
-                            translate(
-                                -offset.x + samplePaddingPx,
-                                -offset.y + samplePaddingPx,
-                            ) {
-                                drawLayer(backdrop.dynamicContentLayer)
+                        if (sampleDynamicContent) {
+                            dynamicContentOffset?.let { offset ->
+                                translate(
+                                    -offset.x + samplePaddingPx,
+                                    -offset.y + samplePaddingPx,
+                                ) {
+                                    drawLayer(backdrop.dynamicContentLayer)
+                                }
                             }
                         }
                     }
@@ -435,12 +455,14 @@ internal fun Modifier.glassOptics(
                         drawLayer(backdrop.layer)
                         drawLayer(backdrop.lightLayer)
                     }
-                    dynamicContentOffset?.let { offset ->
-                        translate(
-                            -offset.x + samplePaddingPx,
-                            -offset.y + samplePaddingPx,
-                        ) {
-                            drawLayer(backdrop.dynamicContentLayer)
+                    if (sampleDynamicContent) {
+                        dynamicContentOffset?.let { offset ->
+                            translate(
+                                -offset.x + samplePaddingPx,
+                                -offset.y + samplePaddingPx,
+                            ) {
+                                drawLayer(backdrop.dynamicContentLayer)
+                            }
                         }
                     }
                 }
@@ -487,7 +509,7 @@ internal fun Modifier.glassOptics(
                     )
                 }
             }
-            if (palette.liquidOptics) {
+            if (usesLiquidOptics) {
                 if (specular) drawRect(surfaceSheen)
                 drawOutline(
                     outline = outline,
